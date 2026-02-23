@@ -1,0 +1,11 @@
+git:
+  path: /opt/homebrew/bin/git
+  
+auth:
+  # GitHub Personal Access Token (optional)
+  # export GITHUB_TOKEN=your_token or set here
+  github_token: ${GITHUB_TOKEN}
+  
+  # Azure DevOps PAT (optional)
+  # export ADO_PAT=your_pat or set here
+  ado_pat: ${ADO_PAT}
