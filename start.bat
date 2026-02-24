@@ -33,6 +33,9 @@ if errorlevel 1 (
     echo [INFO] Flask is already installed
 )
 
+REM Set default git timeout
+set "GIT_TIMEOUT=240"
+
 REM Get command line arguments
 set "HOST=127.0.0.1"
 set "PORT=5000"
