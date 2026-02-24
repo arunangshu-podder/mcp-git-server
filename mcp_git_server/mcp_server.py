@@ -222,6 +222,33 @@ TOOLS = [
         }
     },
     {
+        "name": "git_merge",
+        "description": "Merge a branch into current branch (git merge <branch>)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "branch": {
+                    "type": "string",
+                    "description": "Branch name to merge (required)"
+                },
+                "no_ff": {
+                    "type": "boolean",
+                    "description": "Use --no-ff flag to create a merge commit (default: false)"
+                },
+                "extra_args": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Additional git merge arguments (optional)"
+                }
+            },
+            "required": ["repo_path", "branch"]
+        }
+    },
+    {
         "name": "git_stash",
         "description": "Git stash operations (list, save, pop, apply, drop, clear, show)",
         "inputSchema": {
@@ -307,6 +334,7 @@ def process_tool_call(tool_name: str, tool_input: dict) -> dict:
         "git_branch": "branch",
         "git_log": "log",
         "git_fetch": "fetch",
+        "git_merge": "merge",
         "git_stash": "stash"
     }
     

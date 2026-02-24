@@ -262,6 +262,27 @@ class GitRunner:
             return 1, '', 'commit message is required'
         return self._run(['commit', '-m', message], cwd=repo_path)
 
+    def merge(self, repo_path: str, branch: str = None, no_ff: bool = False, extra_args: List[str] = None) -> Tuple[int, str, str]:
+        """Merge a branch into the current branch (git merge <branch>).
+        
+        Args:
+            repo_path: Path to the repository
+            branch: Branch name to merge (required)
+            no_ff: Use --no-ff flag to create a merge commit even if fast-forward is possible
+            extra_args: Additional arguments to pass to git merge
+        """
+        if not branch:
+            return 1, '', 'branch name is required for merge'
+        
+        args = ['merge']
+        if no_ff:
+            args.append('--no-ff')
+        args.append(branch)
+        if extra_args:
+            args += extra_args
+        
+        return self._run(args, cwd=repo_path)
+
     def stash_list(self, repo_path: str) -> Tuple[int, str, str]:
         """List all stashes (git stash list)."""
         return self._run(['stash', 'list'], cwd=repo_path)

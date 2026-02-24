@@ -214,6 +214,39 @@ def run_safe():
     return make_response(rc, out, err)
 
 
+@app.route('/api/merge', methods=['POST'])
+def merge():
+    """Merge a branch into the current branch (git merge <branch>).
+
+    Accepts JSON fields:
+    - `branch` (required): Branch name to merge
+    - `no_ff` (optional): Use --no-ff flag to create a merge commit
+    - `extra_args` (optional): List of additional git merge arguments
+    """
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    branch = data.get("branch")
+    no_ff = bool(data.get("no_ff", False))
+    extra_args = data.get("extra_args")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    if not branch:
+        return jsonify({"error": "branch name is required"}), 400
+
+    # Ensure extra_args is a list if provided
+    if extra_args is not None and not isinstance(extra_args, list):
+        return jsonify({"error": "extra_args must be a list"}), 400
+
+    rc, out, err = runner.merge(repo_path, branch=branch, no_ff=no_ff, extra_args=extra_args)
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return make_response(rc, out, err)
+
+
 @app.route('/api/stash', methods=['POST'])
 def stash():
     """Git stash operations (list, save, pop, apply, drop, clear, show).
