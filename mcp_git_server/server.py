@@ -214,6 +214,53 @@ def run_safe():
     return make_response(rc, out, err)
 
 
+@app.route('/api/stash', methods=['POST'])
+def stash():
+    """Git stash operations (list, save, pop, apply, drop, clear, show).
+
+    Accepts JSON fields:
+    - `action` (required): 'list', 'save', 'pop', 'apply', 'drop', 'clear', 'show'
+    - `message` (for 'save'): stash message
+    - `stash_index` (for 'pop', 'apply', 'drop', 'show'): stash identifier (e.g., 'stash@{0}')
+    - `patch` (for 'show'): boolean, show as patch (default: false)
+    """
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    action = data.get("action", "list")
+    message = data.get("message")
+    stash_index = data.get("stash_index")
+    patch = bool(data.get("patch", False))
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    valid_actions = {'list', 'save', 'pop', 'apply', 'drop', 'clear', 'show'}
+    if action not in valid_actions:
+        return jsonify({"error": f"invalid action. must be one of: {', '.join(valid_actions)}"}), 400
+
+    # Dispatch to appropriate method
+    if action == 'list':
+        rc, out, err = runner.stash_list(repo_path)
+    elif action == 'save':
+        rc, out, err = runner.stash_save(repo_path, message=message)
+    elif action == 'pop':
+        rc, out, err = runner.stash_pop(repo_path, stash_index=stash_index)
+    elif action == 'apply':
+        rc, out, err = runner.stash_apply(repo_path, stash_index=stash_index)
+    elif action == 'drop':
+        rc, out, err = runner.stash_drop(repo_path, stash_index=stash_index)
+    elif action == 'clear':
+        rc, out, err = runner.stash_clear(repo_path)
+    elif action == 'show':
+        rc, out, err = runner.stash_show(repo_path, stash_index=stash_index, patch=patch)
+
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return make_response(rc, out, err)
+
+
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok', 'git_path': config.get('git_path')})

@@ -220,6 +220,37 @@ TOOLS = [
             },
             "required": ["repo_path"]
         }
+    },
+    {
+        "name": "git_stash",
+        "description": "Git stash operations (list, save, pop, apply, drop, clear, show)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "save", "pop", "apply", "drop", "clear", "show"],
+                    "description": "Stash action to perform (default: list)"
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Stash message (for 'save' action)"
+                },
+                "stash_index": {
+                    "type": "string",
+                    "description": "Stash identifier (e.g., 'stash@{0}') for pop, apply, drop, or show actions"
+                },
+                "patch": {
+                    "type": "boolean",
+                    "description": "Show as patch for 'show' action (default: false)"
+                }
+            },
+            "required": ["repo_path"]
+        }
     }
 ]
 
@@ -275,7 +306,8 @@ def process_tool_call(tool_name: str, tool_input: dict) -> dict:
         "git_checkout": "checkout",
         "git_branch": "branch",
         "git_log": "log",
-        "git_fetch": "fetch"
+        "git_fetch": "fetch",
+        "git_stash": "stash"
     }
     
     if tool_name not in endpoint_map:

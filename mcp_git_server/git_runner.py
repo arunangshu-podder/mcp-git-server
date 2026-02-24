@@ -262,6 +262,51 @@ class GitRunner:
             return 1, '', 'commit message is required'
         return self._run(['commit', '-m', message], cwd=repo_path)
 
+    def stash_list(self, repo_path: str) -> Tuple[int, str, str]:
+        """List all stashes (git stash list)."""
+        return self._run(['stash', 'list'], cwd=repo_path)
+
+    def stash_save(self, repo_path: str, message: str = None) -> Tuple[int, str, str]:
+        """Save current changes as a stash (git stash save '<message>')."""
+        args = ['stash', 'push']
+        if message:
+            args.extend(['-m', message])
+        return self._run(args, cwd=repo_path)
+
+    def stash_apply(self, repo_path: str, stash_index: str = None) -> Tuple[int, str, str]:
+        """Apply a stash without removing it (git stash apply [stash@{N}])."""
+        args = ['stash', 'apply']
+        if stash_index:
+            args.append(stash_index)
+        return self._run(args, cwd=repo_path)
+
+    def stash_pop(self, repo_path: str, stash_index: str = None) -> Tuple[int, str, str]:
+        """Apply and remove a stash (git stash pop [stash@{N}])."""
+        args = ['stash', 'pop']
+        if stash_index:
+            args.append(stash_index)
+        return self._run(args, cwd=repo_path)
+
+    def stash_drop(self, repo_path: str, stash_index: str = None) -> Tuple[int, str, str]:
+        """Delete a stash (git stash drop [stash@{N}])."""
+        args = ['stash', 'drop']
+        if stash_index:
+            args.append(stash_index)
+        return self._run(args, cwd=repo_path)
+
+    def stash_clear(self, repo_path: str) -> Tuple[int, str, str]:
+        """Delete all stashes (git stash clear)."""
+        return self._run(['stash', 'clear'], cwd=repo_path)
+
+    def stash_show(self, repo_path: str, stash_index: str = None, patch: bool = False) -> Tuple[int, str, str]:
+        """Show stash contents (git stash show [stash@{N}] [-p])."""
+        args = ['stash', 'show']
+        if stash_index:
+            args.append(stash_index)
+        if patch:
+            args.append('-p')
+        return self._run(args, cwd=repo_path)
+
     def run_safe(self, repo_path: str, args: List[str]) -> Tuple[int, str, str]:
         # Only allow specific safe subcommands; block arbitrary flags that could be harmful
         safe_cmds = {'status', 'log', 'branch', 'show', 'diff'}
