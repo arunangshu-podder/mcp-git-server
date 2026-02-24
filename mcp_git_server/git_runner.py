@@ -188,9 +188,22 @@ class GitRunner:
             args.append('--rebase')
         return self._run(args, cwd=repo_path, repo_url=repo_url)
 
-    def push(self, repo_path: str, repo_url: str = None, remote: str = 'origin', branch: str = 'main') -> Tuple[int, str, str]:
-        """Push to remote (optionally using `repo_url` for token auth)."""
-        return self._run(['push', remote, branch], cwd=repo_path, repo_url=repo_url)
+    def push(self, repo_path: str, repo_url: str = None, remote: str = 'origin', branch: str = 'main', extra_args: List[str] = None) -> Tuple[int, str, str]:
+        """Push to remote (with token auth if `repo_url` provided).
+
+        Args:
+            repo_path: local repository path
+            repo_url: optional repository HTTPS URL used for token auth (injected temporarily)
+            remote: remote name (default 'origin')
+            branch: branch name to push (default 'main')
+            extra_args: list of additional args to append (e.g., --force-with-lease, --tags)
+
+        Runs as `git push origin <branch>` with optional additional flags.
+        """
+        args = ['push', remote, branch]
+        if extra_args:
+            args += extra_args
+        return self._run(args, cwd=repo_path, repo_url=repo_url)
 
     def commit(self, repo_path: str, message: str = None) -> Tuple[int, str, str]:
         """Commit staged changes.
