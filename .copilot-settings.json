@@ -1,0 +1,14 @@
+{
+  "modelContextProtocol": {
+    "servers": {
+      "git": {
+        "command": "python3",
+        "args": [
+          "-m",
+          "mcp_git_server.mcp_server"
+        ],
+        "cwd": "${workspaceFolder}"
+      }
+    }
+  }
+}
