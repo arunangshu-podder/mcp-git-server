@@ -1,6 +1,7 @@
 import subprocess
 import shlex
 import os
+import time
 from typing import Tuple, List
 
 
@@ -43,27 +44,42 @@ class GitRunner:
         cmd = [self.git_path] + list(args)
         orig_remote = None
         should_restore = False
+        debug = os.environ.get("GIT_RUNNER_DEBUG") == "1"
 
         # effective timeout (None -> use configured default)
         timeout = int(timeout) if timeout is not None else int(self.timeout)
 
+        cmd_str = ' '.join(args)
+        if debug:
+            print(f"[GIT_DEBUG] Starting: {cmd_str} (timeout={timeout}s)", flush=True)
+            start_time = time.time()
+
         try:
             # For remote operations (pull/push/fetch), detect and inject token auth
             if cwd and os.path.isdir(cwd) and args and args[0] in ('pull', 'push', 'fetch'):
+                if debug:
+                    print(f"[GIT_DEBUG] Remote operation detected: {args[0]}", flush=True)
+                
                 # If repo_url not provided, fetch it from git remote
                 if not repo_url:
+                    if debug:
+                        print(f"[GIT_DEBUG] Detecting repo_url from git remote...", flush=True)
                     try:
-                        p = subprocess.run([self.git_path, 'remote', 'get-url', 'origin'], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+                        p = subprocess.run([self.git_path, 'remote', 'get-url', 'origin'], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, timeout=5)
                         if p.returncode == 0:
                             repo_url = p.stdout.strip()
-                    except Exception:
+                            if debug:
+                                print(f"[GIT_DEBUG] Detected repo_url: {repo_url}", flush=True)
+                    except Exception as e:
+                        if debug:
+                            print(f"[GIT_DEBUG] Failed to detect repo_url: {e}", flush=True)
                         repo_url = None
 
                 # If we have a repo URL, inject token auth
                 if repo_url:
                     # Get and save original origin URL
                     try:
-                        p = subprocess.run([self.git_path, 'remote', 'get-url', 'origin'], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+                        p = subprocess.run([self.git_path, 'remote', 'get-url', 'origin'], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, timeout=5)
                         if p.returncode == 0:
                             orig_remote = p.stdout.strip()
                     except Exception:
@@ -71,23 +87,42 @@ class GitRunner:
 
                     auth_url = self._auth_url(repo_url)
                     if auth_url:
+                        if debug:
+                            print(f"[GIT_DEBUG] Injecting token auth...", flush=True)
                         # set new origin with token auth
-                        subprocess.run([self.git_path, 'remote', 'set-url', 'origin', auth_url], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+                        subprocess.run([self.git_path, 'remote', 'set-url', 'origin', auth_url], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, timeout=5)
                         should_restore = orig_remote is not None
 
+            if debug:
+                print(f"[GIT_DEBUG] Executing: {cmd_str}", flush=True)
+            
             proc = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, text=True, env=env)
+            
+            if debug:
+                elapsed = time.time() - start_time
+                print(f"[GIT_DEBUG] Completed in {elapsed:.2f}s (rc={proc.returncode})", flush=True)
+                if proc.stderr:
+                    print(f"[GIT_DEBUG] stderr: {proc.stderr[:200]}", flush=True)
+            
             return proc.returncode, proc.stdout, proc.stderr
         except subprocess.TimeoutExpired:
+            if debug:
+                elapsed = time.time() - start_time
+                print(f"[GIT_DEBUG] TIMEOUT after {elapsed:.2f}s (configured timeout={timeout}s)", flush=True)
             return 124, '', f'Timeout after {timeout}s'
         except FileNotFoundError:
             return 127, '', f'git executable not found: {self.git_path}'
         except Exception as e:
+            if debug:
+                print(f"[GIT_DEBUG] Exception: {e}", flush=True)
             return 1, '', str(e)
         finally:
             # restore remote if we changed it
             if should_restore and orig_remote is not None and cwd and os.path.isdir(cwd):
                 try:
-                    subprocess.run([self.git_path, 'remote', 'set-url', 'origin', orig_remote], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+                    if debug:
+                        print(f"[GIT_DEBUG] Restoring original remote URL...", flush=True)
+                    subprocess.run([self.git_path, 'remote', 'set-url', 'origin', orig_remote], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, timeout=5)
                 except Exception:
                     pass
 
