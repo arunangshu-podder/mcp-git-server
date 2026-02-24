@@ -75,10 +75,6 @@ TOOLS = [
                 "rebase": {
                     "type": "boolean",
                     "description": "Use --rebase (default: false)"
-                },
-                "repo_url": {
-                    "type": "string",
-                    "description": "Repository URL for token auth (optional)"
                 }
             },
             "required": ["repo_path"]
@@ -101,10 +97,6 @@ TOOLS = [
                 "branch": {
                     "type": "string",
                     "description": "Branch name (default: main)"
-                },
-                "repo_url": {
-                    "type": "string",
-                    "description": "Repository URL for token auth (optional)"
                 }
             },
             "required": ["repo_path"]

@@ -122,15 +122,15 @@ def pull():
     """Pull from remote repository.
 
     Accepts optional JSON fields:
-    - `repo_url` (for token auth)
     - `remote` (default: 'origin')
     - `branch` (default: 'main')
     - `rebase` (boolean, default: False)
     - `extra_args` (list of additional flags)
+    
+    Token authentication uses environment variables (GITHUB_TOKEN, ADO_PAT) only.
     """
     data = request.get_json() or {}
     repo_path = data.get("repo_path")
-    repo_url = data.get("repo_url")  # Optional: for token auth
     remote = data.get("remote", "origin")
     branch = data.get("branch", "main")
     rebase = bool(data.get("rebase", False))
@@ -143,7 +143,7 @@ def pull():
     if extra_args is not None and not isinstance(extra_args, list):
         return jsonify({"error": "extra_args must be a list"}), 400
 
-    rc, out, err = runner.pull(repo_path, repo_url=repo_url, remote=remote, branch=branch, rebase=rebase, extra_args=extra_args)
+    rc, out, err = runner.pull(repo_path, remote=remote, branch=branch, rebase=rebase, extra_args=extra_args)
     # Surface informational stderr in stdout on success
     if rc == 0 and not out and err:
         out = err
@@ -156,14 +156,14 @@ def push():
     """Push to remote repository.
 
     Accepts optional JSON fields:
-    - `repo_url` (for token auth)
     - `remote` (default: 'origin')
     - `branch` (default: 'main')
     - `extra_args` (list of additional flags)
+    
+    Token authentication uses environment variables (GITHUB_TOKEN, ADO_PAT) only.
     """
     data = request.get_json() or {}
     repo_path = data.get("repo_path")
-    repo_url = data.get("repo_url") or data.get("auth_url")  # Optional: for token auth
     remote = data.get("remote", "origin")
     branch = data.get("branch", "main")
     extra_args = data.get("extra_args")
@@ -171,15 +171,11 @@ def push():
     if not repo_path or not os.path.exists(repo_path):
         return jsonify({"error": "valid repo_path required"}), 400
 
-    # Validate repo_url if provided
-    if repo_url is not None and not isinstance(repo_url, str):
-        return jsonify({"error": "repo_url must be a string (https URL)"}), 400
-
     # Ensure extra_args is a list if provided
     if extra_args is not None and not isinstance(extra_args, list):
         return jsonify({"error": "extra_args must be a list"}), 400
 
-    rc, out, err = runner.push(repo_path, repo_url=repo_url, remote=remote, branch=branch, extra_args=extra_args)
+    rc, out, err = runner.push(repo_path, remote=remote, branch=branch, extra_args=extra_args)
     # Surface informational stderr in stdout on success
     if rc == 0 and not out and err:
         out = err
