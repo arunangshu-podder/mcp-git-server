@@ -278,6 +278,96 @@ TOOLS = [
             },
             "required": ["repo_path"]
         }
+    },
+    {
+        "name": "git_reset",
+        "description": "Reset current HEAD to specified state (soft, mixed, hard) or unstage files",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["soft", "mixed", "hard", "merge", "keep"],
+                    "description": "Reset mode (default: mixed)"
+                },
+                "target": {
+                    "type": "string",
+                    "description": "Commit hash, branch, or ref to reset to (e.g., 'HEAD~1', 'origin/main')"
+                },
+                "paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "File paths to unstage (when provided, mode is ignored)"
+                }
+            },
+            "required": ["repo_path"]
+        }
+    },
+    {
+        "name": "git_config",
+        "description": "Get, set, unset, or list git configuration values",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["get", "set", "unset", "list"],
+                    "description": "Configuration action (default: get)"
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Configuration key (e.g., 'user.name', 'user.email')"
+                },
+                "value": {
+                    "type": "string",
+                    "description": "Value to set (required for 'set' action)"
+                },
+                "global_scope": {
+                    "type": "boolean",
+                    "description": "If true, operates on global config (default: false)"
+                }
+            },
+            "required": ["repo_path"]
+        }
+    },
+    {
+        "name": "git_restore",
+        "description": "Restore working tree files or unstage changes (modern alternative to checkout for files)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "File paths to restore (required)"
+                },
+                "source": {
+                    "type": "string",
+                    "description": "Source to restore from (e.g., 'HEAD', 'HEAD~1', branch name)"
+                },
+                "staged": {
+                    "type": "boolean",
+                    "description": "Restore staging area (unstage files, default: false)"
+                },
+                "worktree": {
+                    "type": "boolean",
+                    "description": "Restore working tree (default: false)"
+                }
+            },
+            "required": ["repo_path", "paths"]
+        }
     }
 ]
 
@@ -335,7 +425,10 @@ def process_tool_call(tool_name: str, tool_input: dict) -> dict:
         "git_log": "log",
         "git_fetch": "fetch",
         "git_merge": "merge",
-        "git_stash": "stash"
+        "git_stash": "stash",
+        "git_reset": "reset",
+        "git_config": "config",
+        "git_restore": "restore"
     }
     
     if tool_name not in endpoint_map:

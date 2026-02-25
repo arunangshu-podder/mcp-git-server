@@ -542,6 +542,135 @@ class GitRunner:
             args.append('-p')
         return self._run(args, cwd=repo_path)
 
+    def reset(self, repo_path: str, mode: str = 'mixed', target: str = None, paths: List[str] = None) -> Tuple[int, str, str]:
+        """Reset current HEAD to a specified state.
+        
+        Moves the HEAD pointer and optionally modifies the index and working directory.
+        Can also be used to unstage specific files.
+        
+        Args:
+            repo_path: Path to the git repository
+            mode: Reset mode - 'soft', 'mixed', 'hard', 'merge', or 'keep' (default: 'mixed')
+            target: Commit hash, branch name, or ref to reset to (e.g., 'HEAD~1', 'origin/main')
+            paths: List of file paths to reset (unstage). When provided, mode is ignored
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        
+        Note:
+            - 'soft': Move HEAD only, keep index and working directory unchanged
+            - 'mixed': Move HEAD and reset index, keep working directory unchanged (default)
+            - 'hard': Move HEAD, reset index and working directory (DESTRUCTIVE)
+            - When paths are specified, only those files are unstaged
+        """
+        if paths:
+            # Unstage specific files (git reset -- <paths>)
+            args = ['reset', '--']
+            args.extend(paths)
+            return self._run(args, cwd=repo_path)
+        
+        # Full reset with mode
+        args = ['reset']
+        valid_modes = {'soft', 'mixed', 'hard', 'merge', 'keep'}
+        if mode not in valid_modes:
+            return 1, '', f'Invalid reset mode: {mode}. Valid modes: {", ".join(valid_modes)}'
+        
+        args.append(f'--{mode}')
+        if target:
+            args.append(target)
+        
+        return self._run(args, cwd=repo_path)
+
+    def config(self, repo_path: str, action: str = 'get', key: str = None, value: str = None, global_scope: bool = False) -> Tuple[int, str, str]:
+        """Get, set, or list git configuration values.
+        
+        Manages git configuration at repository or global level. Can read individual
+        config values, set new values, or list all configuration.
+        
+        Args:
+            repo_path: Path to the git repository (required even for global config)
+            action: Operation to perform - 'get', 'set', 'unset', or 'list' (default: 'get')
+            key: Configuration key (e.g., 'user.name', 'core.editor')
+            value: Value to set (required when action is 'set')
+            global_scope: If True, operates on global config; if False, repository config
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            For 'get': stdout contains the config value
+            For 'list': stdout contains all configuration in 'key=value' format
+        
+        Note:
+            Common config keys: user.name, user.email, core.editor, core.autocrlf
+        """
+        if action not in {'get', 'set', 'unset', 'list'}:
+            return 1, '', f'Invalid action: {action}. Valid actions: get, set, unset, list'
+        
+        args = ['config']
+        if global_scope:
+            args.append('--global')
+        
+        if action == 'list':
+            args.append('--list')
+        elif action == 'get':
+            if not key:
+                return 1, '', 'key is required for get action'
+            args.append('--get')
+            args.append(key)
+        elif action == 'set':
+            if not key or value is None:
+                return 1, '', 'key and value are required for set action'
+            args.append(key)
+            args.append(value)
+        elif action == 'unset':
+            if not key:
+                return 1, '', 'key is required for unset action'
+            args.append('--unset')
+            args.append(key)
+        
+        return self._run(args, cwd=repo_path)
+
+    def restore(self, repo_path: str, paths: List[str] = None, source: str = None, staged: bool = False, worktree: bool = False) -> Tuple[int, str, str]:
+        """Restore working tree files or unstage changes.
+        
+        Modern Git command (2.23+) to restore files in the working directory or staging area.
+        This is the preferred alternative to 'git checkout' for file operations.
+        
+        Args:
+            repo_path: Path to the git repository
+            paths: List of file paths to restore (required)
+            source: Source to restore from (e.g., 'HEAD', 'HEAD~1', branch name)
+            staged: If True, restores files in the staging area (--staged flag)
+            worktree: If True, restores files in the working tree (--worktree flag, default behavior)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        
+        Note:
+            - Default behavior: restore working tree from index
+            - Use staged=True to unstage files (restore index from HEAD)
+            - Use both staged=True and worktree=True to discard all changes
+        """
+        if not paths:
+            return 1, '', 'paths parameter is required (list of file paths to restore)'
+        
+        args = ['restore']
+        
+        if staged:
+            args.append('--staged')
+        if worktree:
+            args.append('--worktree')
+        
+        if source:
+            args.extend(['--source', source])
+        
+        args.append('--')
+        if isinstance(paths, list):
+            args.extend(paths)
+        else:
+            args.append(str(paths))
+        
+        return self._run(args, cwd=repo_path)
+
     def run_safe(self, repo_path: str, args: List[str]) -> Tuple[int, str, str]:
         """Execute a safe read-only git command.
         

@@ -4,7 +4,7 @@ Minimal MCP-style HTTP server to run common Git operations via HTTP API and Mode
 
 ## Features
 
-- 🔧 **12 Git Operations**: Clone, status, pull, push, commit, add, checkout, branch, log, fetch, merge, stash
+- 🔧 **15 Git Operations**: Clone, status, pull, push, commit, add, checkout, branch, log, fetch, merge, stash, reset, config, restore
 - 🤖 **MCP Integration**: Works seamlessly with VS Code Copilot
 - 🔐 **Automatic Token Authentication**: GitHub and Azure DevOps tokens injected automatically
 - 🌐 **Cross-Platform**: macOS, Linux, and Windows support
@@ -42,7 +42,7 @@ curl http://127.0.0.1:5000/api/health
 
 ## Available Tools
 
-The server provides **12 git operations** accessible via MCP tools (for Copilot) or HTTP endpoints (for direct API calls):
+The server provides **15 git operations** accessible via MCP tools (for Copilot) or HTTP endpoints (for direct API calls):
 
 | # | Tool | HTTP Endpoint | Description |
 |---|------|---------------|-------------|
@@ -58,6 +58,9 @@ The server provides **12 git operations** accessible via MCP tools (for Copilot)
 | 10 | `git_fetch` | `POST /api/fetch` | Fetch from remote |
 | 11 | `git_merge` | `POST /api/merge` | Merge branches |
 | 12 | `git_stash` | `POST /api/stash` | Manage stashes (save, list, apply, pop, drop, clear, show) |
+| 13 | `git_reset` | `POST /api/reset` | Reset HEAD to specified state or unstage files |
+| 14 | `git_config` | `POST /api/config` | Get, set, unset, or list git configuration |
+| 15 | `git_restore` | `POST /api/restore` | Restore working tree files or unstage changes |
 
 **📖 For detailed parameters, examples, and usage, see [API_REFERENCE.md](API_REFERENCE.md)**
 

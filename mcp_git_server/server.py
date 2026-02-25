@@ -294,6 +294,74 @@ def stash():
     return make_response(rc, out, err)
 
 
+@app.route('/api/reset', methods=['POST'])
+def reset():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    mode = data.get("mode", "mixed")
+    target = data.get("target")
+    paths = data.get("paths")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    rc, out, err = runner.reset(repo_path, mode=mode, target=target, paths=paths)
+    message = 'Reset successful' if rc == 0 else 'Reset failed'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
+@app.route('/api/config', methods=['POST'])
+def config_endpoint():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    action = data.get("action", "get")
+    key = data.get("key")
+    value = data.get("value")
+    global_scope = bool(data.get("global_scope", False))
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    rc, out, err = runner.config(repo_path, action=action, key=key, value=value, global_scope=global_scope)
+    message = f'Config {action} successful' if rc == 0 else f'Config {action} failed'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
+@app.route('/api/restore', methods=['POST'])
+def restore():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    paths = data.get("paths")
+    source = data.get("source")
+    staged = bool(data.get("staged", False))
+    worktree = bool(data.get("worktree", False))
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+    
+    if not paths:
+        return jsonify({"error": "paths parameter required (list of file paths)"}), 400
+
+    rc, out, err = runner.restore(repo_path, paths=paths, source=source, staged=staged, worktree=worktree)
+    message = 'Restore successful' if rc == 0 else 'Restore failed'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok', 'git_path': config.get('git_path')})

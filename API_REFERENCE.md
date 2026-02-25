@@ -1,6 +1,6 @@
 # MCP Git Server - Complete API Reference
 
-Comprehensive documentation for all 12 git operations available via MCP tools and HTTP endpoints.
+Comprehensive documentation for all 15 git operations available via MCP tools and HTTP endpoints.
 
 ---
 
@@ -433,6 +433,225 @@ Manage git stashes (save, list, apply, pop, drop, clear, show).
 
 ---
 
+### 13. `git_reset`
+Reset current HEAD to specified state or unstage files.
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+- `mode` (string, optional): Reset mode - one of: `soft`, `mixed`, `hard`, `merge`, `keep` (default: `"mixed"`)
+- `target` (string, optional): Commit hash, branch, or ref to reset to (e.g., `"HEAD~1"`, `"origin/main"`)
+- `paths` (array of strings, optional): File paths to unstage (when provided, mode is ignored)
+
+**Example (natural language):**
+```
+"Reset to the previous commit"
+"Undo the last commit but keep changes"
+"Unstage all files"
+"Hard reset to origin/main"
+```
+
+**Tool calls:**
+```json
+// Soft reset (undo commit, keep changes staged)
+{
+  "name": "git_reset",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "mode": "soft",
+    "target": "HEAD~1"
+  }
+}
+
+// Mixed reset (undo commit and unstage, keep changes in working dir)
+{
+  "name": "git_reset",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "mode": "mixed",
+    "target": "HEAD~1"
+  }
+}
+
+// Hard reset (discard all changes)
+{
+  "name": "git_reset",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "mode": "hard",
+    "target": "origin/main"
+  }
+}
+
+// Unstage specific files
+{
+  "name": "git_reset",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "paths": ["src/main.py", "README.md"]
+  }
+}
+```
+
+**Reset Modes:**
+- `soft` - Move HEAD only, keep index and working directory unchanged
+- `mixed` - Move HEAD and reset index, keep working directory (default)
+- `hard` - Move HEAD, reset index and working directory (**DESTRUCTIVE**)
+- `merge` - Reset but keep changes not in conflict with target
+- `keep` - Reset but keep local changes
+
+---
+
+### 14. `git_config`
+Get, set, unset, or list git configuration values.
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+- `action` (string, optional): Configuration action - one of: `get`, `set`, `unset`, `list` (default: `"get"`)
+- `key` (string, optional): Configuration key (e.g., `"user.name"`, `"user.email"`)
+- `value` (string, optional): Value to set (required for `set` action)
+- `global_scope` (boolean, optional): If true, operates on global config (default: `false`)
+
+**Example (natural language):**
+```
+"Get the user name configuration"
+"Set user email to john@example.com"
+"List all configuration"
+"Set the default editor to vim globally"
+```
+
+**Tool calls:**
+```json
+// Get configuration value
+{
+  "name": "git_config",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "action": "get",
+    "key": "user.name"
+  }
+}
+
+// Set configuration value
+{
+  "name": "git_config",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "action": "set",
+    "key": "user.email",
+    "value": "john@example.com"
+  }
+}
+
+// Set global configuration
+{
+  "name": "git_config",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "action": "set",
+    "key": "core.editor",
+    "value": "vim",
+    "global_scope": true
+  }
+}
+
+// List all configuration
+{
+  "name": "git_config",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "action": "list"
+  }
+}
+
+// Unset configuration value
+{
+  "name": "git_config",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "action": "unset",
+    "key": "user.signingkey"
+  }
+}
+```
+
+**Common Configuration Keys:**
+- `user.name` - Your name for commits
+- `user.email` - Your email for commits
+- `core.editor` - Default text editor
+- `core.autocrlf` - Line ending handling (true/false/input)
+- `remote.origin.url` - Remote repository URL
+
+---
+
+### 15. `git_restore`
+Restore working tree files or unstage changes (modern alternative to checkout for files).
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+- `paths` (array of strings, **required**): File paths to restore
+- `source` (string, optional): Source to restore from (e.g., `"HEAD"`, `"HEAD~1"`, branch name)
+- `staged` (boolean, optional): Restore staging area / unstage files (default: `false`)
+- `worktree` (boolean, optional): Restore working tree (default: `false`)
+
+**Example (natural language):**
+```
+"Restore main.py from HEAD"
+"Unstage README.md"
+"Discard all changes in src/utils/*"
+"Restore index.html from the previous commit"
+```
+
+**Tool calls:**
+```json
+// Restore file from index (discard working directory changes)
+{
+  "name": "git_restore",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "paths": ["src/main.py"]
+  }
+}
+
+// Unstage file (restore index from HEAD)
+{
+  "name": "git_restore",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "paths": ["README.md"],
+    "staged": true
+  }
+}
+
+// Restore file from specific commit
+{
+  "name": "git_restore",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "paths": ["index.html"],
+    "source": "HEAD~1"
+  }
+}
+
+// Discard all changes (staged and working)
+{
+  "name": "git_restore",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "paths": ["."],
+    "staged": true,
+    "worktree": true
+  }
+}
+```
+
+**Restore Modes:**
+- Default (no flags): Restore working tree from index
+- `staged: true` - Restore index from HEAD (unstage files)
+- `worktree: true` - Explicitly restore working tree
+- Both flags: Discard all changes (staged and unstaged)
+
+---
+
 ## HTTP API Endpoints
 
 If you're accessing the Flask server directly (not via MCP), use these HTTP endpoints.
@@ -773,6 +992,152 @@ curl -X POST http://127.0.0.1:5000/api/stash \
 - `drop` - Remove a specific stash
 - `clear` - Remove all stashes
 - `show` - Show stash contents (optionally as patch)
+
+---
+
+#### `POST /api/reset`
+Reset current HEAD to specified state or unstage files.
+
+**Request body:**
+```json
+{
+  "repo_path": "/path/to/repo",
+  "mode": "mixed",
+  "target": "HEAD~1",
+  "paths": ["file1.txt", "file2.txt"]
+}
+```
+
+**curl examples:**
+```bash
+# Soft reset (undo commit, keep changes staged)
+curl -X POST http://127.0.0.1:5000/api/reset \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","mode":"soft","target":"HEAD~1"}'
+
+# Mixed reset (undo commit and unstage)
+curl -X POST http://127.0.0.1:5000/api/reset \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","mode":"mixed","target":"HEAD~1"}'
+
+# Hard reset (discard all changes - DESTRUCTIVE)
+curl -X POST http://127.0.0.1:5000/api/reset \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","mode":"hard","target":"origin/main"}'
+
+# Unstage specific files
+curl -X POST http://127.0.0.1:5000/api/reset \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","paths":["src/main.py","README.md"]}'
+```
+
+**Reset modes:**
+- `soft` - Move HEAD only, keep index and working directory
+- `mixed` - Move HEAD and reset index (default)
+- `hard` - Move HEAD, reset index and working directory (**DESTRUCTIVE**)
+- `merge` - Reset but keep changes not in conflict
+- `keep` - Reset but keep local changes
+
+**Note:** When `paths` is provided, only those files are unstaged (mode is ignored).
+
+---
+
+#### `POST /api/config`
+Get, set, unset, or list git configuration values.
+
+**Request body:**
+```json
+{
+  "repo_path": "/path/to/repo",
+  "action": "set",
+  "key": "user.email",
+  "value": "john@example.com",
+  "global_scope": false
+}
+```
+
+**curl examples:**
+```bash
+# Get configuration value
+curl -X POST http://127.0.0.1:5000/api/config \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","action":"get","key":"user.name"}'
+
+# Set configuration value
+curl -X POST http://127.0.0.1:5000/api/config \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","action":"set","key":"user.email","value":"john@example.com"}'
+
+# Set global configuration
+curl -X POST http://127.0.0.1:5000/api/config \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","action":"set","key":"core.editor","value":"vim","global_scope":true}'
+
+# List all configuration
+curl -X POST http://127.0.0.1:5000/api/config \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","action":"list"}'
+
+# Unset configuration value
+curl -X POST http://127.0.0.1:5000/api/config \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","action":"unset","key":"user.signingkey"}'
+```
+
+**Configuration actions:**
+- `get` - Get a configuration value (default)
+- `set` - Set a configuration value
+- `unset` - Remove a configuration value
+- `list` - List all configuration
+
+**Common config keys:** `user.name`, `user.email`, `core.editor`, `core.autocrlf`, `remote.origin.url`
+
+---
+
+#### `POST /api/restore`
+Restore working tree files or unstage changes.
+
+**Request body:**
+```json
+{
+  "repo_path": "/path/to/repo",
+  "paths": ["src/main.py", "README.md"],
+  "source": "HEAD",
+  "staged": false,
+  "worktree": false
+}
+```
+
+**curl examples:**
+```bash
+# Restore file from index (discard working directory changes)
+curl -X POST http://127.0.0.1:5000/api/restore \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","paths":["src/main.py"]}'
+
+# Unstage file (restore index from HEAD)
+curl -X POST http://127.0.0.1:5000/api/restore \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","paths":["README.md"],"staged":true}'
+
+# Restore file from specific commit
+curl -X POST http://127.0.0.1:5000/api/restore \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","paths":["index.html"],"source":"HEAD~1"}'
+
+# Discard all changes (staged and working)
+curl -X POST http://127.0.0.1:5000/api/restore \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","paths":["."],"staged":true,"worktree":true}'
+```
+
+**Restore modes:**
+- Default (no flags): Restore working tree from index
+- `"staged": true` - Restore index from HEAD (unstage files)
+- `"worktree": true` - Explicitly restore working tree
+- Both flags: Discard all changes
+
+**Note:** `git restore` is the modern alternative to `git checkout` for restoring files (Git 2.23+).
 
 ---
 
