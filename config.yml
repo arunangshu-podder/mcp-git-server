@@ -1,5 +1,10 @@
 git:
-  path: /opt/homebrew/bin/git
+  # Git path - auto-detected by default on all platforms
+  # On macOS: /opt/homebrew/bin/git or /usr/bin/git
+  # On Linux: /usr/bin/git
+  # On Windows: git (from PATH) or C:\Program Files\Git\cmd\git.exe
+  # Leave commented to use auto-detection
+  # path: /opt/homebrew/bin/git
   
 auth:
   # GitHub Personal Access Token (optional)
@@ -9,3 +14,7 @@ auth:
   # Azure DevOps PAT (optional)
   # export ADO_PAT=your_pat or set here
   ado_pat: ${ADO_PAT}
+
+# Git operation timeout in seconds (default: 30)
+# Increase for slow networks or large repos
+# timeout: 240

@@ -15,6 +15,9 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}MCP Git Server - Quick Start${NC}\n"
 
+# Set default git timeout
+export GIT_TIMEOUT=240
+
 # Check if Python is available
 if ! command -v python3 &> /dev/null; then
     echo -e "${YELLOW}Python 3 not found. Please install Python 3.${NC}"

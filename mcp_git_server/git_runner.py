@@ -1,6 +1,8 @@
 import subprocess
 import shlex
 import os
+import time
+import platform
 from typing import Tuple, List
 
 
@@ -28,55 +30,114 @@ class GitRunner:
             url = url.split('@', 1)[-1]
 
         if 'github.com' in url and self.github_token:
-            return f"{scheme}git:{self.github_token}@{url}"
+            # GitHub prefers x-access-token as username for PATs
+            return f"{scheme}x-access-token:{self.github_token}@{url}"
         if ('dev.azure.com' in url or 'visualstudio.com' in url) and self.ado_pat:
+            # ADO accepts PAT directly as username (any value works, PAT is the key)
             return f"{scheme}PAT:{self.ado_pat}@{url}"
         return repo_url
 
     def _run(self, args: List[str], cwd: str = None, repo_url: str = None, timeout: int = None) -> Tuple[int, str, str]:
-        """Run a git command (args as list). If `repo_url` is provided for operations
-        that touch a remote (pull/push/fetch), temporarily set `origin` to the
-        authenticated URL and restore it afterward.
+        """Run a git command (args as list). For operations that touch a remote
+        (pull/push/fetch), automatically detect repo_url from git remote and
+        temporarily set `origin` to the authenticated URL, then restore afterward.
         Returns (returncode, stdout, stderr).
         """
         env = os.environ.copy()
+        
+        # Disable all credential prompts on ALL platforms (macOS, Linux, Windows)
+        # This ensures git uses the injected token and never prompts for credentials
+        env["GIT_TERMINAL_PROMPT"] = "0"  # Disable terminal credential prompts
+        env["GIT_ASKPASS"] = "true"        # Disable askpass credential helper (use 'true' command which returns success but does nothing)
+        env["GCM_INTERACTIVE"] = "never"   # Disable Git Credential Manager interactive mode
+        env["GIT_TRACE"] = "0"             # Disable git tracing for cleaner output
+        
+        # Additional Windows-specific settings
+        if platform.system() == "Windows":
+            env["GCM_PROVIDER"] = "generic"  # Use generic provider, not Windows Credential Manager
+        
         cmd = [self.git_path] + list(args)
         orig_remote = None
         should_restore = False
+        debug = os.environ.get("GIT_RUNNER_DEBUG") == "1"
 
         # effective timeout (None -> use configured default)
         timeout = int(timeout) if timeout is not None else int(self.timeout)
 
+        cmd_str = ' '.join(args)
+        if debug:
+            print(f"[GIT_DEBUG] Starting: {cmd_str} (timeout={timeout}s)", flush=True)
+            start_time = time.time()
+
         try:
-            # If repo_url provided and cwd exists and command touches remote, swap origin
-            if repo_url and cwd and os.path.isdir(cwd) and args and args[0] in ('pull', 'push', 'fetch'):
-                # attempt to read original origin URL
-                try:
-                    p = subprocess.run([self.git_path, 'remote', 'get-url', 'origin'], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
-                    if p.returncode == 0:
-                        orig_remote = p.stdout.strip()
-                except Exception:
-                    orig_remote = None
+            # For remote operations (pull/push/fetch), detect and inject token auth
+            if cwd and os.path.isdir(cwd) and args and args[0] in ('pull', 'push', 'fetch'):
+                if debug:
+                    print(f"[GIT_DEBUG] Remote operation detected: {args[0]}", flush=True)
+                
+                # If repo_url not provided, fetch it from git remote
+                if not repo_url:
+                    if debug:
+                        print(f"[GIT_DEBUG] Detecting repo_url from git remote...", flush=True)
+                    try:
+                        p = subprocess.run([self.git_path, 'remote', 'get-url', 'origin'], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, timeout=5)
+                        if p.returncode == 0:
+                            repo_url = p.stdout.strip()
+                            if debug:
+                                print(f"[GIT_DEBUG] Detected repo_url: {repo_url}", flush=True)
+                    except Exception as e:
+                        if debug:
+                            print(f"[GIT_DEBUG] Failed to detect repo_url: {e}", flush=True)
+                        repo_url = None
 
-                auth_url = self._auth_url(repo_url)
-                if auth_url:
-                    # set new origin
-                    subprocess.run([self.git_path, 'remote', 'set-url', 'origin', auth_url], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
-                    should_restore = orig_remote is not None
+                # If we have a repo URL, inject token auth
+                if repo_url:
+                    # Get and save original origin URL
+                    try:
+                        p = subprocess.run([self.git_path, 'remote', 'get-url', 'origin'], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, timeout=5)
+                        if p.returncode == 0:
+                            orig_remote = p.stdout.strip()
+                    except Exception:
+                        orig_remote = None
 
+                    auth_url = self._auth_url(repo_url)
+                    if auth_url:
+                        if debug:
+                            print(f"[GIT_DEBUG] Injecting token auth...", flush=True)
+                        # set new origin with token auth
+                        subprocess.run([self.git_path, 'remote', 'set-url', 'origin', auth_url], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, timeout=5)
+                        should_restore = orig_remote is not None
+
+            if debug:
+                print(f"[GIT_DEBUG] Executing: {cmd_str}", flush=True)
+            
             proc = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, text=True, env=env)
+            
+            if debug:
+                elapsed = time.time() - start_time
+                print(f"[GIT_DEBUG] Completed in {elapsed:.2f}s (rc={proc.returncode})", flush=True)
+                if proc.stderr:
+                    print(f"[GIT_DEBUG] stderr: {proc.stderr[:200]}", flush=True)
+            
             return proc.returncode, proc.stdout, proc.stderr
         except subprocess.TimeoutExpired:
+            if debug:
+                elapsed = time.time() - start_time
+                print(f"[GIT_DEBUG] TIMEOUT after {elapsed:.2f}s (configured timeout={timeout}s)", flush=True)
             return 124, '', f'Timeout after {timeout}s'
         except FileNotFoundError:
             return 127, '', f'git executable not found: {self.git_path}'
         except Exception as e:
+            if debug:
+                print(f"[GIT_DEBUG] Exception: {e}", flush=True)
             return 1, '', str(e)
         finally:
             # restore remote if we changed it
             if should_restore and orig_remote is not None and cwd and os.path.isdir(cwd):
                 try:
-                    subprocess.run([self.git_path, 'remote', 'set-url', 'origin', orig_remote], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+                    if debug:
+                        print(f"[GIT_DEBUG] Restoring original remote URL...", flush=True)
+                    subprocess.run([self.git_path, 'remote', 'set-url', 'origin', orig_remote], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, timeout=5)
                 except Exception:
                     pass
 
@@ -168,8 +229,8 @@ class GitRunner:
             args.append(str(paths))
         return self._run(args, cwd=repo_path)
 
-    def pull(self, repo_path: str, repo_url: str = None, remote: str = 'origin', branch: str = 'main', rebase: bool = False, extra_args: List[str] = None) -> Tuple[int, str, str]:
-        """Pull from remote (with token auth if repo_url provided).
+    def pull(self, repo_path: str, remote: str = 'origin', branch: str = 'main', rebase: bool = False, extra_args: List[str] = None) -> Tuple[int, str, str]:
+        """Pull from remote (with token auth from environment variables).
 
         Supports `rebase=True` to run `git pull --rebase`.
         `extra_args` may be provided as a list of additional flags.
@@ -186,24 +247,24 @@ class GitRunner:
         # `git pull origin feature/foo --rebase`
         if rebase:
             args.append('--rebase')
-        return self._run(args, cwd=repo_path, repo_url=repo_url)
+        return self._run(args, cwd=repo_path, repo_url=None)
 
-    def push(self, repo_path: str, repo_url: str = None, remote: str = 'origin', branch: str = 'main', extra_args: List[str] = None) -> Tuple[int, str, str]:
-        """Push to remote (with token auth if `repo_url` provided).
+    def push(self, repo_path: str, remote: str = 'origin', branch: str = 'main', extra_args: List[str] = None) -> Tuple[int, str, str]:
+        """Push to remote (with token auth from environment variables).
 
         Args:
             repo_path: local repository path
-            repo_url: optional repository HTTPS URL used for token auth (injected temporarily)
             remote: remote name (default 'origin')
             branch: branch name to push (default 'main')
             extra_args: list of additional args to append (e.g., --force-with-lease, --tags)
 
         Runs as `git push origin <branch>` with optional additional flags.
+        Token auth is derived from GITHUB_TOKEN or ADO_PAT environment variables.
         """
         args = ['push', remote, branch]
         if extra_args:
             args += extra_args
-        return self._run(args, cwd=repo_path, repo_url=repo_url)
+        return self._run(args, cwd=repo_path, repo_url=None)
 
     def commit(self, repo_path: str, message: str = None) -> Tuple[int, str, str]:
         """Commit staged changes.
@@ -215,6 +276,72 @@ class GitRunner:
         if not message:
             return 1, '', 'commit message is required'
         return self._run(['commit', '-m', message], cwd=repo_path)
+
+    def merge(self, repo_path: str, branch: str = None, no_ff: bool = False, extra_args: List[str] = None) -> Tuple[int, str, str]:
+        """Merge a branch into the current branch (git merge <branch>).
+        
+        Args:
+            repo_path: Path to the repository
+            branch: Branch name to merge (required)
+            no_ff: Use --no-ff flag to create a merge commit even if fast-forward is possible
+            extra_args: Additional arguments to pass to git merge
+        """
+        if not branch:
+            return 1, '', 'branch name is required for merge'
+        
+        args = ['merge']
+        if no_ff:
+            args.append('--no-ff')
+        args.append(branch)
+        if extra_args:
+            args += extra_args
+        
+        return self._run(args, cwd=repo_path)
+
+    def stash_list(self, repo_path: str) -> Tuple[int, str, str]:
+        """List all stashes (git stash list)."""
+        return self._run(['stash', 'list'], cwd=repo_path)
+
+    def stash_save(self, repo_path: str, message: str = None) -> Tuple[int, str, str]:
+        """Save current changes as a stash (git stash save '<message>')."""
+        args = ['stash', 'push']
+        if message:
+            args.extend(['-m', message])
+        return self._run(args, cwd=repo_path)
+
+    def stash_apply(self, repo_path: str, stash_index: str = None) -> Tuple[int, str, str]:
+        """Apply a stash without removing it (git stash apply [stash@{N}])."""
+        args = ['stash', 'apply']
+        if stash_index:
+            args.append(stash_index)
+        return self._run(args, cwd=repo_path)
+
+    def stash_pop(self, repo_path: str, stash_index: str = None) -> Tuple[int, str, str]:
+        """Apply and remove a stash (git stash pop [stash@{N}])."""
+        args = ['stash', 'pop']
+        if stash_index:
+            args.append(stash_index)
+        return self._run(args, cwd=repo_path)
+
+    def stash_drop(self, repo_path: str, stash_index: str = None) -> Tuple[int, str, str]:
+        """Delete a stash (git stash drop [stash@{N}])."""
+        args = ['stash', 'drop']
+        if stash_index:
+            args.append(stash_index)
+        return self._run(args, cwd=repo_path)
+
+    def stash_clear(self, repo_path: str) -> Tuple[int, str, str]:
+        """Delete all stashes (git stash clear)."""
+        return self._run(['stash', 'clear'], cwd=repo_path)
+
+    def stash_show(self, repo_path: str, stash_index: str = None, patch: bool = False) -> Tuple[int, str, str]:
+        """Show stash contents (git stash show [stash@{N}] [-p])."""
+        args = ['stash', 'show']
+        if stash_index:
+            args.append(stash_index)
+        if patch:
+            args.append('-p')
+        return self._run(args, cwd=repo_path)
 
     def run_safe(self, repo_path: str, args: List[str]) -> Tuple[int, str, str]:
         # Only allow specific safe subcommands; block arbitrary flags that could be harmful

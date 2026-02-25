@@ -33,6 +33,20 @@ if errorlevel 1 (
     echo [INFO] Flask is already installed
 )
 
+REM Check if Git is available
+git --version >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Git not found. Please install Git from https://git-scm.com/download/win
+    echo [INFO] Make sure to check "Add Git to PATH" during installation.
+    pause
+    exit /b 1
+) else (
+    echo [INFO] Git is available
+)
+
+REM Set default git timeout
+set "GIT_TIMEOUT=240"
+
 REM Get command line arguments
 set "HOST=127.0.0.1"
 set "PORT=5000"

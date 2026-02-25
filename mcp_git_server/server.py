@@ -122,15 +122,15 @@ def pull():
     """Pull from remote repository.
 
     Accepts optional JSON fields:
-    - `repo_url` (for token auth)
     - `remote` (default: 'origin')
     - `branch` (default: 'main')
     - `rebase` (boolean, default: False)
     - `extra_args` (list of additional flags)
+    
+    Token authentication uses environment variables (GITHUB_TOKEN, ADO_PAT) only.
     """
     data = request.get_json() or {}
     repo_path = data.get("repo_path")
-    repo_url = data.get("repo_url")  # Optional: for token auth
     remote = data.get("remote", "origin")
     branch = data.get("branch", "main")
     rebase = bool(data.get("rebase", False))
@@ -143,7 +143,7 @@ def pull():
     if extra_args is not None and not isinstance(extra_args, list):
         return jsonify({"error": "extra_args must be a list"}), 400
 
-    rc, out, err = runner.pull(repo_path, repo_url=repo_url, remote=remote, branch=branch, rebase=rebase, extra_args=extra_args)
+    rc, out, err = runner.pull(repo_path, remote=remote, branch=branch, rebase=rebase, extra_args=extra_args)
     # Surface informational stderr in stdout on success
     if rc == 0 and not out and err:
         out = err
@@ -156,14 +156,14 @@ def push():
     """Push to remote repository.
 
     Accepts optional JSON fields:
-    - `repo_url` (for token auth)
     - `remote` (default: 'origin')
     - `branch` (default: 'main')
     - `extra_args` (list of additional flags)
+    
+    Token authentication uses environment variables (GITHUB_TOKEN, ADO_PAT) only.
     """
     data = request.get_json() or {}
     repo_path = data.get("repo_path")
-    repo_url = data.get("repo_url") or data.get("auth_url")  # Optional: for token auth
     remote = data.get("remote", "origin")
     branch = data.get("branch", "main")
     extra_args = data.get("extra_args")
@@ -171,15 +171,11 @@ def push():
     if not repo_path or not os.path.exists(repo_path):
         return jsonify({"error": "valid repo_path required"}), 400
 
-    # Validate repo_url if provided
-    if repo_url is not None and not isinstance(repo_url, str):
-        return jsonify({"error": "repo_url must be a string (https URL)"}), 400
-
     # Ensure extra_args is a list if provided
     if extra_args is not None and not isinstance(extra_args, list):
         return jsonify({"error": "extra_args must be a list"}), 400
 
-    rc, out, err = runner.push(repo_path, repo_url=repo_url, remote=remote, branch=branch, extra_args=extra_args)
+    rc, out, err = runner.push(repo_path, remote=remote, branch=branch, extra_args=extra_args)
     # Surface informational stderr in stdout on success
     if rc == 0 and not out and err:
         out = err
@@ -215,6 +211,86 @@ def run_safe():
     if not isinstance(args, list):
         return jsonify({'error': 'args must be a list'}), 400
     rc, out, err = runner.run_safe(repo, args)
+    return make_response(rc, out, err)
+
+
+@app.route('/api/merge', methods=['POST'])
+def merge():
+    """Merge a branch into the current branch (git merge <branch>).
+
+    Accepts JSON fields:
+    - `branch` (required): Branch name to merge
+    - `no_ff` (optional): Use --no-ff flag to create a merge commit
+    - `extra_args` (optional): List of additional git merge arguments
+    """
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    branch = data.get("branch")
+    no_ff = bool(data.get("no_ff", False))
+    extra_args = data.get("extra_args")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    if not branch:
+        return jsonify({"error": "branch name is required"}), 400
+
+    # Ensure extra_args is a list if provided
+    if extra_args is not None and not isinstance(extra_args, list):
+        return jsonify({"error": "extra_args must be a list"}), 400
+
+    rc, out, err = runner.merge(repo_path, branch=branch, no_ff=no_ff, extra_args=extra_args)
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return make_response(rc, out, err)
+
+
+@app.route('/api/stash', methods=['POST'])
+def stash():
+    """Git stash operations (list, save, pop, apply, drop, clear, show).
+
+    Accepts JSON fields:
+    - `action` (required): 'list', 'save', 'pop', 'apply', 'drop', 'clear', 'show'
+    - `message` (for 'save'): stash message
+    - `stash_index` (for 'pop', 'apply', 'drop', 'show'): stash identifier (e.g., 'stash@{0}')
+    - `patch` (for 'show'): boolean, show as patch (default: false)
+    """
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    action = data.get("action", "list")
+    message = data.get("message")
+    stash_index = data.get("stash_index")
+    patch = bool(data.get("patch", False))
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    valid_actions = {'list', 'save', 'pop', 'apply', 'drop', 'clear', 'show'}
+    if action not in valid_actions:
+        return jsonify({"error": f"invalid action. must be one of: {', '.join(valid_actions)}"}), 400
+
+    # Dispatch to appropriate method
+    if action == 'list':
+        rc, out, err = runner.stash_list(repo_path)
+    elif action == 'save':
+        rc, out, err = runner.stash_save(repo_path, message=message)
+    elif action == 'pop':
+        rc, out, err = runner.stash_pop(repo_path, stash_index=stash_index)
+    elif action == 'apply':
+        rc, out, err = runner.stash_apply(repo_path, stash_index=stash_index)
+    elif action == 'drop':
+        rc, out, err = runner.stash_drop(repo_path, stash_index=stash_index)
+    elif action == 'clear':
+        rc, out, err = runner.stash_clear(repo_path)
+    elif action == 'show':
+        rc, out, err = runner.stash_show(repo_path, stash_index=stash_index, patch=patch)
+
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
     return make_response(rc, out, err)
 
 

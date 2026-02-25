@@ -75,10 +75,6 @@ TOOLS = [
                 "rebase": {
                     "type": "boolean",
                     "description": "Use --rebase (default: false)"
-                },
-                "repo_url": {
-                    "type": "string",
-                    "description": "Repository URL for token auth (optional)"
                 }
             },
             "required": ["repo_path"]
@@ -101,10 +97,6 @@ TOOLS = [
                 "branch": {
                     "type": "string",
                     "description": "Branch name (default: main)"
-                },
-                "repo_url": {
-                    "type": "string",
-                    "description": "Repository URL for token auth (optional)"
                 }
             },
             "required": ["repo_path"]
@@ -228,6 +220,64 @@ TOOLS = [
             },
             "required": ["repo_path"]
         }
+    },
+    {
+        "name": "git_merge",
+        "description": "Merge a branch into current branch (git merge <branch>)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "branch": {
+                    "type": "string",
+                    "description": "Branch name to merge (required)"
+                },
+                "no_ff": {
+                    "type": "boolean",
+                    "description": "Use --no-ff flag to create a merge commit (default: false)"
+                },
+                "extra_args": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Additional git merge arguments (optional)"
+                }
+            },
+            "required": ["repo_path", "branch"]
+        }
+    },
+    {
+        "name": "git_stash",
+        "description": "Git stash operations (list, save, pop, apply, drop, clear, show)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "save", "pop", "apply", "drop", "clear", "show"],
+                    "description": "Stash action to perform (default: list)"
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Stash message (for 'save' action)"
+                },
+                "stash_index": {
+                    "type": "string",
+                    "description": "Stash identifier (e.g., 'stash@{0}') for pop, apply, drop, or show actions"
+                },
+                "patch": {
+                    "type": "boolean",
+                    "description": "Show as patch for 'show' action (default: false)"
+                }
+            },
+            "required": ["repo_path"]
+        }
     }
 ]
 
@@ -247,26 +297,26 @@ def call_git_endpoint(endpoint: str, data: dict, server_url: str = "http://127.0
     body = json.dumps(data).encode('utf-8')
     
     if debug:
-        print(f"[MCP_DEBUG] calling {endpoint} on {server_url} with data: {str(data)[:200]}", file=sys.stderr)
+        print(f"[MCP_DEBUG] calling {endpoint} on {server_url} with data: {str(data)[:200]}")
     
     try:
         req = urllib.request.Request(url, data=body, headers=headers, method='POST')
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode('utf-8'))
             if debug:
-                print(f"[MCP_DEBUG] got response: {str(result)[:200]}", file=sys.stderr)
+                print(f"[MCP_DEBUG] got response: {str(result)[:200]}")
             return result
     except urllib.error.HTTPError as e:
         error_body = e.read().decode('utf-8')
         if debug:
-            print(f"[MCP_DEBUG] HTTP {e.code}: {error_body[:200]}", file=sys.stderr)
+            print(f"[MCP_DEBUG] HTTP {e.code}: {error_body[:200]}")
         return {
             "error": f"HTTP {e.code}",
             "details": error_body
         }
     except Exception as e:
         if debug:
-            print(f"[MCP_DEBUG] exception: {str(e)}", file=sys.stderr)
+            print(f"[MCP_DEBUG] exception: {str(e)}")
         return {"error": str(e)}
 
 
@@ -283,7 +333,9 @@ def process_tool_call(tool_name: str, tool_input: dict) -> dict:
         "git_checkout": "checkout",
         "git_branch": "branch",
         "git_log": "log",
-        "git_fetch": "fetch"
+        "git_fetch": "fetch",
+        "git_merge": "merge",
+        "git_stash": "stash"
     }
     
     if tool_name not in endpoint_map:
@@ -307,29 +359,29 @@ def _read_message() -> Optional[dict]:
         raw_line = sys.stdin.buffer.readline()
         if not raw_line:
             if debug:
-                print(f"[MCP_DEBUG] EOF on stdin", file=sys.stderr)
+                print(f"[MCP_DEBUG] EOF on stdin")
             return None
         
         line = raw_line.decode("utf-8", errors="replace").strip()
         if not line:
             if debug:
-                print(f"[MCP_DEBUG] empty line, skipping", file=sys.stderr)
+                print(f"[MCP_DEBUG] empty line, skipping")
             return None
         
         if debug:
-            print(f"[MCP_DEBUG] received line: {line[:100]}", file=sys.stderr)
+            print(f"[MCP_DEBUG] received line: {line[:100]}")
         
         msg = json.loads(line)
         if debug:
-            print(f"[MCP_DEBUG] parsed: method={msg.get('method')}, id={msg.get('id')}", file=sys.stderr)
+            print(f"[MCP_DEBUG] parsed: method={msg.get('method')}, id={msg.get('id')}")
         return msg
     except json.JSONDecodeError as e:
         if debug:
-            print(f"[MCP_DEBUG] JSON decode error: {e}", file=sys.stderr)
+            print(f"[MCP_DEBUG] JSON decode error: {e}")
         return None
     except Exception as e:
         if debug:
-            print(f"[MCP_DEBUG] error reading message: {e}", file=sys.stderr)
+            print(f"[MCP_DEBUG] error reading message: {e}")
         return None
 
 
@@ -344,7 +396,7 @@ def _write_message(payload: dict) -> None:
         sys.stdout.buffer.write((data + "\n").encode("utf-8"))
         sys.stdout.buffer.flush()
         if debug:
-            print(f"[MCP_DEBUG] wrote: {data[:100]}", file=sys.stderr)
+            print(f"[MCP_DEBUG] wrote: {data[:100]}")
     except Exception as e:
         if debug:
             print(f"[MCP_DEBUG] error writing message: {e}", file=sys.stderr)
