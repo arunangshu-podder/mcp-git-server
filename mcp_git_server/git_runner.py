@@ -2,6 +2,7 @@ import subprocess
 import shlex
 import os
 import time
+import platform
 from typing import Tuple, List
 
 
@@ -41,6 +42,12 @@ class GitRunner:
         Returns (returncode, stdout, stderr).
         """
         env = os.environ.copy()
+        
+        # Windows: Disable Git Credential Manager to prevent prompts/hangs
+        if platform.system() == "Windows":
+            env["GIT_TERMINAL_PROMPT"] = "0"
+            env["GIT_ASKPASS"] = ""
+        
         cmd = [self.git_path] + list(args)
         orig_remote = None
         should_restore = False

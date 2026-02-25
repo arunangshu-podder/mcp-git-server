@@ -1,5 +1,28 @@
 import os
 import yaml
+import shutil
+import platform
+
+def get_default_git_path():
+    """Auto-detect git executable path (cross-platform)."""
+    # Try to find git in PATH first (works on all platforms)
+    git_in_path = shutil.which("git")
+    if git_in_path:
+        return git_in_path
+    
+    # Windows-specific fallback locations
+    if platform.system() == "Windows":
+        possible_paths = [
+            "C:\\Program Files (x86)\\Git\\bin\\git.exe",
+        ]
+        for path in possible_paths:
+            if os.path.exists(path):
+                return path
+        # If nothing found, return "git" and hope it's in PATH
+        return "git"
+    
+    # Unix/macOS fallback
+    return "/usr/bin/git"
 
 def load_config(config_file="config.yml"):
     """Load configuration from YAML file and environment variables."""
@@ -13,7 +36,7 @@ def load_config(config_file="config.yml"):
             return os.getenv(var_name, "")
         return value
     
-    git_path = resolve_env(config.get("git", {}).get("path", "/usr/bin/git"))
+    git_path = resolve_env(config.get("git", {}).get("path", get_default_git_path()))
     github_token = resolve_env(config.get("auth", {}).get("github_token", ""))
     ado_pat = resolve_env(config.get("auth", {}).get("ado_pat", ""))
     # timeout in seconds (env overrides YAML)
