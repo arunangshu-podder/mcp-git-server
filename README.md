@@ -116,7 +116,7 @@ See [API_REFERENCE.md](API_REFERENCE.md) for complete API documentation.
 | `GIT_TIMEOUT` | Operation timeout in seconds | `30` |
 | `GIT_PATH` | Path to git executable | Auto-detected |
 | `MCP_DEBUG` | Enable MCP debug logging | `0` |
-| `GIT_RUNNER_DEBUG` | Enable git runner debug logging | `0` |
+| `GIT_TOOLS_DEBUG` | Enable git tools debug logging | `0` |
 
 ### Token Authentication
 

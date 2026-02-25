@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from mcp_git_server.config import load_config
-from mcp_git_server.git_runner import GitRunner
+from mcp_git_server.git_tools import GitRunner
 import os
 
 app = Flask(__name__)

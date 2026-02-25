@@ -59,7 +59,7 @@ def check_environment():
     print("4. Token Injection Test")
     try:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from mcp_git_server.git_runner import GitRunner
+        from mcp_git_server.git_tools import GitRunner
         
         runner = GitRunner(
             github_token=github_token,

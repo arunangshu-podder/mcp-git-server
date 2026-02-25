@@ -1291,7 +1291,7 @@ Configure these in your `mcp.json` or shell environment:
 | `GIT_PATH` | No | Auto-detected | Path to git executable |
 | `MCP_GIT_SERVER_URL` | No | `http://127.0.0.1:5000` | Flask server URL |
 | `MCP_DEBUG` | No | `0` | Enable debug logging (`1` to enable) |
-| `GIT_RUNNER_DEBUG` | No | `0` | Enable git runner debug (`1` to enable) |
+| `GIT_TOOLS_DEBUG` | No | `0` | Enable git tools debug (`1` to enable) |
 
 ---
 
@@ -1351,7 +1351,7 @@ curl -X POST http://127.0.0.1:5000/api/push \
 
 For issues or questions:
 1. Check the error response for specific error messages
-2. Enable debug mode: `export MCP_DEBUG=1` or `export GIT_RUNNER_DEBUG=1`
+2. Enable debug mode: `export MCP_DEBUG=1` or `export GIT_TOOLS_DEBUG=1`
 3. Review logs in VS Code Output panel (for MCP) or terminal (for HTTP)
 4. Verify git is installed: `git --version`
 5. Test tokens: See [TOKEN_AUTH_GUIDE.md](TOKEN_AUTH_GUIDE.md)

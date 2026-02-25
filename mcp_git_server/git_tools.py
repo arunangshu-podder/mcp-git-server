@@ -94,7 +94,7 @@ class GitRunner:
         cmd = [self.git_path] + list(args)
         orig_remote = None
         should_restore = False
-        debug = os.environ.get("GIT_RUNNER_DEBUG") == "1"
+        debug = os.environ.get("GIT_TOOLS_DEBUG") == "1"
 
         # effective timeout (None -> use configured default)
         timeout = int(timeout) if timeout is not None else int(self.timeout)
