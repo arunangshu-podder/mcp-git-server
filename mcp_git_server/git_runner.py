@@ -7,16 +7,37 @@ from typing import Tuple, List
 
 
 class GitRunner:
+    """Git command runner with token authentication and cross-platform credential management.
+    
+    This class provides methods to execute git commands with automatic token injection
+    for GitHub and Azure DevOps, credential prompt blocking, and timeout management.
+    """
+    
     def __init__(self, git_path="/usr/bin/git", github_token="", ado_pat="", timeout: int = 30):
+        """Initialize GitRunner with git executable path and authentication tokens.
+        
+        Args:
+            git_path: Path to git executable (default: /usr/bin/git)
+            github_token: GitHub Personal Access Token for authentication
+            ado_pat: Azure DevOps Personal Access Token for authentication
+            timeout: Default timeout in seconds for git operations (default: 30)
+        """
         self.git_path = git_path
         self.github_token = github_token
         self.ado_pat = ado_pat
         self.timeout = int(timeout or 30)
     
     def _auth_url(self, repo_url: str) -> str:
-        """Return an authenticated URL (inject token) for GitHub or ADO if configured.
-
-        Leaves non-HTTP URLs unchanged.
+        """Return an authenticated URL with token injection for GitHub or Azure DevOps.
+        
+        Injects the appropriate token into HTTPS URLs for GitHub (using x-access-token)
+        or Azure DevOps (using PAT). Non-HTTP URLs (e.g., SSH) are left unchanged.
+        
+        Args:
+            repo_url: Repository URL (HTTP/HTTPS or SSH)
+        
+        Returns:
+            Authenticated URL string with token injected, or original URL if not HTTP
         """
         if not isinstance(repo_url, str) or not repo_url.startswith('http'):
             return repo_url
@@ -38,10 +59,24 @@ class GitRunner:
         return repo_url
 
     def _run(self, args: List[str], cwd: str = None, repo_url: str = None, timeout: int = None) -> Tuple[int, str, str]:
-        """Run a git command (args as list). For operations that touch a remote
-        (pull/push/fetch), automatically detect repo_url from git remote and
-        temporarily set `origin` to the authenticated URL, then restore afterward.
-        Returns (returncode, stdout, stderr).
+        """Execute a git command with credential blocking and automatic token authentication.
+        
+        For remote operations (pull/push/fetch), automatically detects the repository URL
+        from git remote, temporarily replaces the origin URL with an authenticated version,
+        executes the command, and restores the original URL afterward. All credential prompts
+        are blocked across platforms (macOS, Linux, Windows).
+        
+        Args:
+            args: List of git command arguments (e.g., ['status', '--porcelain'])
+            cwd: Working directory for the git command (typically repo path)
+            repo_url: Repository URL for authentication (auto-detected if not provided)
+            timeout: Command timeout in seconds (uses instance default if None)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            - returncode: Git command exit code (0 for success, non-zero for errors)
+            - stdout: Standard output from the git command
+            - stderr: Standard error output from the git command
         """
         env = os.environ.copy()
         
@@ -142,10 +177,19 @@ class GitRunner:
                     pass
 
     def clone(self, repo_url: str, dest: str = None, extra_args: List[str] = None) -> Tuple[int, str, str]:
-        """Clone a repository with token authentication.
+        """Clone a repository with automatic token authentication.
         
-        If `dest` already exists as a directory, clone into a subfolder using the repo name.
-        Otherwise, use `dest` as the target directory path.
+        Clones a Git repository using the appropriate authentication token (GitHub or Azure DevOps).
+        If the destination exists as a directory, the repo is cloned into a subfolder named after
+        the repository. Otherwise, the destination is used as the exact target path.
+        
+        Args:
+            repo_url: Repository URL to clone (HTTP/HTTPS or SSH)
+            dest: Destination directory path (creates subfolder if dest exists)
+            extra_args: Additional git clone arguments (e.g., ['--depth', '1', '--branch', 'main'])
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
         """
         final_dest = dest
         
@@ -168,25 +212,66 @@ class GitRunner:
         return self._run(args)
 
     def status(self, repo_path: str, human: bool = True) -> Tuple[int, str, str]:
-        """Get repository status.
-
-        If `human` is True, returns the same output as `git status`.
-        Otherwise returns machine-readable porcelain output used by tools.
+        """Get repository status in human-readable or machine-readable format.
+        
+        Returns the current working tree status, including modified files, staged changes,
+        and branch information. The output format can be human-readable or porcelain.
+        
+        Args:
+            repo_path: Path to the git repository
+            human: If True, returns human-readable output; if False, returns porcelain v2 format
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
         """
         if human:
             return self._run(['status'], cwd=repo_path)
         return self._run(['status', '--porcelain=2', '-b'], cwd=repo_path)
 
     def log(self, repo_path: str, n: int = 20) -> Tuple[int, str, str]:
+        """Get commit history in oneline format.
+        
+        Retrieves the most recent commit logs with each commit displayed on a single line
+        showing the commit hash and message.
+        
+        Args:
+            repo_path: Path to the git repository
+            n: Number of commits to retrieve (default: 20)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        """
         return self._run(['log', f'-n{n}', '--pretty=oneline'], cwd=repo_path)
 
     def branch(self, repo_path: str) -> Tuple[int, str, str]:
+        """Get the current branch name.
+        
+        Returns the name of the currently checked out branch. If in detached HEAD state,
+        returns an empty string.
+        
+        Args:
+            repo_path: Path to the git repository
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            stdout contains the current branch name
+        """
         return self._run(['branch', '--show-current'], cwd=repo_path)
 
     def fetch(self, repo_path: str, remote: str = None, branch: str = None, repo_url: str = None) -> Tuple[int, str, str]:
-        """Fetch from remote. Optionally fetch a specific branch.
-
-        If `repo_url` is provided it will be used for token-auth when contacting the remote.
+        """Fetch updates from a remote repository with token authentication.
+        
+        Downloads objects and refs from the remote repository without merging.
+        Can optionally fetch a specific branch from a specific remote.
+        
+        Args:
+            repo_path: Path to the git repository
+            remote: Remote name (e.g., 'origin'); if None, uses default remote
+            branch: Specific branch to fetch; if None, fetches all branches
+            repo_url: Repository URL for token authentication (auto-detected if None)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
         """
         args = ['fetch']
         if remote:
@@ -197,12 +282,18 @@ class GitRunner:
         return self._run(args, cwd=repo_path, repo_url=repo_url)
     
     def checkout(self, repo_path: str, target: str = None, create: bool = False) -> Tuple[int, str, str]:
-        """Checkout a branch or commit.
-
+        """Checkout a branch or commit, optionally creating a new branch.
+        
+        Switches the working directory to the specified branch or commit.
+        Can create a new branch with the create flag.
+        
         Args:
-            repo_path: Path to the repository
-            target: Branch name or commit hash to checkout
-            create: if True, run `git checkout -b <target>` to create the branch
+            repo_path: Path to the git repository
+            target: Branch name or commit hash to checkout (required)
+            create: If True, creates a new branch and checks it out (git checkout -b)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
         """
         if not target:
             return 1, '', 'target (branch or commit) is required'
@@ -211,12 +302,19 @@ class GitRunner:
         return self._run(['checkout', target], cwd=repo_path)
 
     def add(self, repo_path: str, paths=None) -> Tuple[int, str, str]:
-        """Add files to index.
-
-        `paths` may be:
-        - None -> equivalent to `git add .`
-        - a string -> a single pathspec (file or '.')
-        - a list of strings -> multiple pathspecs
+        """Add files to the staging area (index).
+        
+        Stages changes for the next commit. Accepts flexible path specifications.
+        
+        Args:
+            repo_path: Path to the git repository
+            paths: Files to add:
+                - None: stages all changes (equivalent to 'git add .')
+                - str: single file path or pathspec
+                - List[str]: multiple file paths or pathspecs
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
         """
         if not repo_path or not os.path.isdir(repo_path):
             return 1, '', 'invalid repo_path'
@@ -230,10 +328,20 @@ class GitRunner:
         return self._run(args, cwd=repo_path)
 
     def pull(self, repo_path: str, remote: str = 'origin', branch: str = 'main', rebase: bool = False, extra_args: List[str] = None) -> Tuple[int, str, str]:
-        """Pull from remote (with token auth from environment variables).
-
-        Supports `rebase=True` to run `git pull --rebase`.
-        `extra_args` may be provided as a list of additional flags.
+        """Pull changes from a remote repository with token authentication.
+        
+        Fetches and integrates changes from the remote branch into the current branch.
+        Supports rebase mode and additional git flags.
+        
+        Args:
+            repo_path: Path to the git repository
+            remote: Remote name (default: 'origin')
+            branch: Branch name to pull (default: 'main')
+            rebase: If True, uses rebase instead of merge (--rebase flag)
+            extra_args: Additional git pull arguments (e.g., ['--no-ff', '--verbose'])
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
         """
         args = ['pull']
         # add remote/branch first so flags like --rebase can appear after
@@ -250,16 +358,19 @@ class GitRunner:
         return self._run(args, cwd=repo_path, repo_url=None)
 
     def push(self, repo_path: str, remote: str = 'origin', branch: str = 'main', extra_args: List[str] = None) -> Tuple[int, str, str]:
-        """Push to remote (with token auth from environment variables).
-
+        """Push local commits to a remote repository with token authentication.
+        
+        Uploads local branch commits to the remote repository. Token authentication
+        is automatically applied based on GITHUB_TOKEN or ADO_PAT configuration.
+        
         Args:
-            repo_path: local repository path
-            remote: remote name (default 'origin')
-            branch: branch name to push (default 'main')
-            extra_args: list of additional args to append (e.g., --force-with-lease, --tags)
-
-        Runs as `git push origin <branch>` with optional additional flags.
-        Token auth is derived from GITHUB_TOKEN or ADO_PAT environment variables.
+            repo_path: Path to the git repository
+            remote: Remote name (default: 'origin')
+            branch: Branch name to push (default: 'main')
+            extra_args: Additional git push arguments (e.g., ['--force-with-lease', '--tags'])
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
         """
         args = ['push', remote, branch]
         if extra_args:
@@ -267,24 +378,36 @@ class GitRunner:
         return self._run(args, cwd=repo_path, repo_url=None)
 
     def commit(self, repo_path: str, message: str = None) -> Tuple[int, str, str]:
-        """Commit staged changes.
-
+        """Create a commit with staged changes.
+        
+        Records staged changes to the repository with the provided commit message.
+        
         Args:
-            repo_path: Path to the repository
+            repo_path: Path to the git repository
             message: Commit message (required)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
         """
         if not message:
             return 1, '', 'commit message is required'
         return self._run(['commit', '-m', message], cwd=repo_path)
 
     def merge(self, repo_path: str, branch: str = None, no_ff: bool = False, extra_args: List[str] = None) -> Tuple[int, str, str]:
-        """Merge a branch into the current branch (git merge <branch>).
+        """Merge a branch into the current branch.
+        
+        Integrates changes from the specified branch into the current branch.
+        Can force creation of a merge commit for better history visualization.
         
         Args:
-            repo_path: Path to the repository
-            branch: Branch name to merge (required)
-            no_ff: Use --no-ff flag to create a merge commit even if fast-forward is possible
-            extra_args: Additional arguments to pass to git merge
+            repo_path: Path to the git repository
+            branch: Branch name to merge into the current branch (required)
+            no_ff: If True, creates a merge commit even for fast-forward merges (--no-ff)
+            extra_args: Additional git merge arguments (e.g., ['--squash', '--no-commit'])
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            returncode will be non-zero if merge conflicts occur
         """
         if not branch:
             return 1, '', 'branch name is required for merge'
@@ -299,43 +422,119 @@ class GitRunner:
         return self._run(args, cwd=repo_path)
 
     def stash_list(self, repo_path: str) -> Tuple[int, str, str]:
-        """List all stashes (git stash list)."""
+        """List all saved stashes.
+        
+        Displays all stashed changes with their indices and descriptions.
+        
+        Args:
+            repo_path: Path to the git repository
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            stdout contains list of stashes in format 'stash@{N}: <message>'
+        """
         return self._run(['stash', 'list'], cwd=repo_path)
 
     def stash_save(self, repo_path: str, message: str = None) -> Tuple[int, str, str]:
-        """Save current changes as a stash (git stash save '<message>')."""
+        """Save current working directory changes to a new stash.
+        
+        Stores uncommitted changes (both staged and unstaged) in a stash,
+        and reverts the working directory to match the HEAD commit.
+        
+        Args:
+            repo_path: Path to the git repository
+            message: Optional description for the stash
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        """
         args = ['stash', 'push']
         if message:
             args.extend(['-m', message])
         return self._run(args, cwd=repo_path)
 
     def stash_apply(self, repo_path: str, stash_index: str = None) -> Tuple[int, str, str]:
-        """Apply a stash without removing it (git stash apply [stash@{N}])."""
+        """Apply a stashed change without removing it from the stash list.
+        
+        Reapplies changes from a stash to the working directory. The stash
+        remains in the stash list for potential reuse.
+        
+        Args:
+            repo_path: Path to the git repository
+            stash_index: Stash reference (e.g., 'stash@{0}'); if None, applies most recent stash
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        """
         args = ['stash', 'apply']
         if stash_index:
             args.append(stash_index)
         return self._run(args, cwd=repo_path)
 
     def stash_pop(self, repo_path: str, stash_index: str = None) -> Tuple[int, str, str]:
-        """Apply and remove a stash (git stash pop [stash@{N}])."""
+        """Apply a stash and remove it from the stash list.
+        
+        Reapplies changes from a stash to the working directory, then removes
+        that stash from the list. If conflicts occur, the stash is not removed.
+        
+        Args:
+            repo_path: Path to the git repository
+            stash_index: Stash reference (e.g., 'stash@{0}'); if None, pops most recent stash
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        """
         args = ['stash', 'pop']
         if stash_index:
             args.append(stash_index)
         return self._run(args, cwd=repo_path)
 
     def stash_drop(self, repo_path: str, stash_index: str = None) -> Tuple[int, str, str]:
-        """Delete a stash (git stash drop [stash@{N}])."""
+        """Remove a single stash from the stash list.
+        
+        Permanently deletes a stash without applying it. Use with caution
+        as deleted stashes cannot be recovered easily.
+        
+        Args:
+            repo_path: Path to the git repository
+            stash_index: Stash reference (e.g., 'stash@{0}'); if None, drops most recent stash
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        """
         args = ['stash', 'drop']
         if stash_index:
             args.append(stash_index)
         return self._run(args, cwd=repo_path)
 
     def stash_clear(self, repo_path: str) -> Tuple[int, str, str]:
-        """Delete all stashes (git stash clear)."""
+        """Remove all stashes from the repository.
+        
+        Permanently deletes all stashed changes. This operation cannot be undone,
+        so use with extreme caution.
+        
+        Args:
+            repo_path: Path to the git repository
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        """
         return self._run(['stash', 'clear'], cwd=repo_path)
 
     def stash_show(self, repo_path: str, stash_index: str = None, patch: bool = False) -> Tuple[int, str, str]:
-        """Show stash contents (git stash show [stash@{N}] [-p])."""
+        """Display the contents of a stash.
+        
+        Shows the changes stored in a stash. Can display as a summary of changed files
+        or as a full patch diff.
+        
+        Args:
+            repo_path: Path to the git repository
+            stash_index: Stash reference (e.g., 'stash@{0}'); if None, shows most recent stash
+            patch: If True, shows full diff patch (-p flag); if False, shows summary
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        """
         args = ['stash', 'show']
         if stash_index:
             args.append(stash_index)
@@ -344,6 +543,23 @@ class GitRunner:
         return self._run(args, cwd=repo_path)
 
     def run_safe(self, repo_path: str, args: List[str]) -> Tuple[int, str, str]:
+        """Execute a safe read-only git command.
+        
+        Runs only whitelisted git commands that are read-only and cannot modify
+        the repository state. This is useful for executing arbitrary git queries
+        while preventing destructive operations.
+        
+        Args:
+            repo_path: Path to the git repository
+            args: Git command arguments (first element must be in safe commands list)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            Returns error if command is not in the safe list
+        
+        Note:
+            Allowed commands: status, log, branch, show, diff
+        """
         # Only allow specific safe subcommands; block arbitrary flags that could be harmful
         safe_cmds = {'status', 'log', 'branch', 'show', 'diff'}
         if not args:
