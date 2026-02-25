@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "git": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mcp_git_server.mcp_server"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "ghp_your_github_personal_access_token_here",
+        "ADO_PAT": "your_azure_devops_personal_access_token_here",
+        "GIT_TIMEOUT": "240",
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_ASKPASS": "true",
+        "GCM_INTERACTIVE": "never",
+        "MCP_DEBUG": "0"
+      }
+    }
+  }
+}
