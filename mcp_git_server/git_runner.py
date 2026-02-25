@@ -30,8 +30,10 @@ class GitRunner:
             url = url.split('@', 1)[-1]
 
         if 'github.com' in url and self.github_token:
-            return f"{scheme}git:{self.github_token}@{url}"
+            # GitHub prefers x-access-token as username for PATs
+            return f"{scheme}x-access-token:{self.github_token}@{url}"
         if ('dev.azure.com' in url or 'visualstudio.com' in url) and self.ado_pat:
+            # ADO accepts PAT directly as username (any value works, PAT is the key)
             return f"{scheme}PAT:{self.ado_pat}@{url}"
         return repo_url
 
@@ -43,10 +45,16 @@ class GitRunner:
         """
         env = os.environ.copy()
         
-        # Windows: Disable Git Credential Manager to prevent prompts/hangs
+        # Disable all credential prompts on ALL platforms (macOS, Linux, Windows)
+        # This ensures git uses the injected token and never prompts for credentials
+        env["GIT_TERMINAL_PROMPT"] = "0"  # Disable terminal credential prompts
+        env["GIT_ASKPASS"] = "true"        # Disable askpass credential helper (use 'true' command which returns success but does nothing)
+        env["GCM_INTERACTIVE"] = "never"   # Disable Git Credential Manager interactive mode
+        env["GIT_TRACE"] = "0"             # Disable git tracing for cleaner output
+        
+        # Additional Windows-specific settings
         if platform.system() == "Windows":
-            env["GIT_TERMINAL_PROMPT"] = "0"
-            env["GIT_ASKPASS"] = ""
+            env["GCM_PROVIDER"] = "generic"  # Use generic provider, not Windows Credential Manager
         
         cmd = [self.git_path] + list(args)
         orig_remote = None
