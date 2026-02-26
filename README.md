@@ -1,15 +1,19 @@
 # mcp-git-server
 
-Minimal MCP-style HTTP server to run common Git operations.
+Minimal MCP-style HTTP server to run common Git operations via HTTP API and Model Context Protocol (MCP) for VS Code Copilot.
 
-Features:
-- Configure the `git` executable path via env or config file
-- Exposes HTTP JSON endpoints for common git operations: clone, status, log, branch, fetch, pull, push
-- Uses a whitelist to avoid arbitrary unsafe git commands
+## Features
 
-Quick start
+- 🔧 **15 Git Operations**: Clone, status, pull, push, commit, add, checkout, branch, log, fetch, merge, stash, reset, config, restore
+- 🤖 **MCP Integration**: Works seamlessly with VS Code Copilot
+- 🔐 **Automatic Token Authentication**: GitHub and Azure DevOps tokens injected automatically
+- 🌐 **Cross-Platform**: macOS, Linux, and Windows support
+- 🚫 **No Credential Prompts**: All git credential dialogs disabled
+- ⏱️ **Configurable Timeouts**: Handle slow networks or large repositories
 
-1. Create a virtualenv and install dependencies:
+## Quick Start
+
+1. **Install dependencies:**
 
 ```bash
 python3 -m venv .venv
@@ -17,110 +21,125 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. (Optional) Configure git path via env:
+2. **Configure tokens (optional):**
 
 ```bash
-export GIT_PATH=/usr/bin/git
+export GITHUB_TOKEN=ghp_your_github_token
+export ADO_PAT=your_azure_devops_pat
 ```
 
-3. Run the server:
+3. **Run the server:**
 
 ```bash
-python run_server.py --host 0.0.0.0 --port 5000
+python run_server.py --host 127.0.0.1 --port 5000
 ```
 
-4. Example: check repo status
+4. **Test the server:**
 
 ```bash
-curl -X POST http://localhost:5000/api/status -H 'Content-Type: application/json' \
-  -d '{"repo_path":"/path/to/repo"}'
+curl http://127.0.0.1:5000/api/health
 ```
 
-See the endpoint descriptions in `mcp_git_server/server.py`.
+## Available Tools
 
-API Usage
----------
+The server provides **15 git operations** accessible via MCP tools (for Copilot) or HTTP endpoints (for direct API calls):
 
-Below are common HTTP examples to call the MCP Git server endpoints.
+| # | Tool | HTTP Endpoint | Description |
+|---|------|---------------|-------------|
+| 1 | `git_clone` | `POST /api/clone` | Clone a repository |
+| 2 | `git_status` | `POST /api/status` | Get repository status |
+| 3 | `git_pull` | `POST /api/pull` | Pull from remote (supports `--rebase`) |
+| 4 | `git_push` | `POST /api/push` | Push to remote |
+| 5 | `git_commit` | `POST /api/commit` | Commit staged changes |
+| 6 | `git_add` | `POST /api/add` | Stage files for commit |
+| 7 | `git_checkout` | `POST /api/checkout` | Switch or create branches |
+| 8 | `git_branch` | `POST /api/branch` | Get current branch name |
+| 9 | `git_log` | `POST /api/log` | Show commit history |
+| 10 | `git_fetch` | `POST /api/fetch` | Fetch from remote |
+| 11 | `git_merge` | `POST /api/merge` | Merge branches |
+| 12 | `git_stash` | `POST /api/stash` | Manage stashes (save, list, apply, pop, drop, clear, show) |
+| 13 | `git_reset` | `POST /api/reset` | Reset HEAD to specified state or unstage files |
+| 14 | `git_config` | `POST /api/config` | Get, set, unset, or list git configuration |
+| 15 | `git_restore` | `POST /api/restore` | Restore working tree files or unstage changes |
 
-- Status (human-readable, default):
+**📖 For detailed parameters, examples, and usage, see [API_REFERENCE.md](API_REFERENCE.md)**
 
-```bash
-curl -X POST http://localhost:8000/api/status \
-  -H 'Content-Type: application/json' \
-  -d '{"repo_path":"/path/to/repo"}'
+## Documentation
+
+- **[API_REFERENCE.md](API_REFERENCE.md)** - Complete API documentation with parameters, examples, and error handling
+- **[MCP_SETUP.md](MCP_SETUP.md)** - VS Code Copilot integration guide
+- **[TOKEN_AUTH_GUIDE.md](TOKEN_AUTH_GUIDE.md)** - Token authentication setup and troubleshooting
+- **[QUICK_START.md](QUICK_START.md)** - Quick start guide and common workflows
+- **[WINDOWS_COMPATIBILITY.md](WINDOWS_COMPATIBILITY.md)** - Windows-specific setup instructions
+
+## Example Usage
+
+### Using Copilot (Natural Language)
+
+```
+"Clone https://github.com/torvalds/linux.git to ~/projects"
+"What's the status of my repo at ~/my-project?"
+"Pull the latest changes with rebase"
+"Commit all changes with message 'feat: add login'"
+"Push to origin main"
 ```
 
-- Status (machine/porcelain):
+### Using HTTP API (Direct)
 
 ```bash
-curl -X POST http://localhost:8000/api/status \
-  -H 'Content-Type: application/json' \
-  -d '{"repo_path":"/path/to/repo","human":false}'
-```
-
-- Clone (creates a new folder under `dest` if `dest` exists):
-
-```bash
-curl -X POST http://localhost:8000/api/clone \
-  -H 'Content-Type: application/json' \
-  -d '{"repo_url":"https://dev.azure.com/org/project/_git/repo","dest":"/path/to/parent"}'
-```
-
-If using token auth, set `ADO_PAT` or `GITHUB_TOKEN` in the environment before starting the server.
-
-- Fetch a specific branch (with optional token-auth via `repo_url`):
-
-```bash
-export ADO_PAT=your_pat_here
-curl -X POST http://localhost:8000/api/fetch \
-  -H 'Content-Type: application/json' \
-  -d '{"repo_path":"/path/to/repo","remote":"origin","branch":"feature/foo","repo_url":"https://dev.azure.com/org/project/_git/repo"}'
-```
-
-- Pull / Push (use `repo_url` for token auth if needed):
-
-```bash
-curl -X POST http://localhost:8000/api/pull \
-  -H 'Content-Type: application/json' \
-  -d '{"repo_path":"/path/to/repo","repo_url":"https://dev.azure.com/org/project/_git/repo"}'
-```
-
-- Checkout (switch branch); create new branch with `create=true`:
-
-```bash
-# checkout existing
-curl -X POST http://localhost:8000/api/checkout \
-  -H 'Content-Type: application/json' \
-  -d '{"repo_path":"/path/to/repo","target":"main"}'
-
-# create and checkout
-curl -X POST http://localhost:8000/api/checkout \
-  -H 'Content-Type: application/json' \
-  -d '{"repo_path":"/path/to/repo","target":"new-branch","create":true}'
-```
-
-- Add files to index (`git add .` or `git add <file>`):
-
-```bash
-# add all
-curl -X POST http://localhost:8000/api/add \
-  -H 'Content-Type: application/json' \
+# Check status
+curl -X POST http://127.0.0.1:5000/api/status \
+  -H "Content-Type: application/json" \
   -d '{"repo_path":"/path/to/repo"}'
 
-# add single file
-curl -X POST http://localhost:8000/api/add \
-  -H 'Content-Type: application/json' \
-  -d '{"repo_path":"/path/to/repo","paths":"relative/path/file.txt"}'
+# Pull with rebase
+curl -X POST http://127.0.0.1:5000/api/pull \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/path/to/repo","rebase":true}'
 
-# add multiple files
-curl -X POST http://localhost:8000/api/add \
-  -H 'Content-Type: application/json' \
-  -d '{"repo_path":"/path/to/repo","paths":["file1.txt","dir/file2.java"]}'
+# Merge branch
+curl -X POST http://127.0.0.1:5000/api/merge \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/path/to/repo","branch":"feature-branch"}'
 ```
 
-Notes
------
-- Prefer setting tokens via environment variables (e.g., `export ADO_PAT=...`) rather than committing them to `config.yml`.
-- The server will return JSON with `returncode`, `stdout`, `stderr`, and an optional `message` for many endpoints.
-- See `mcp_git_server/server.py` for full endpoint behavior and `mcp_git_server/git_runner.py` for how git commands are executed.
+See [API_REFERENCE.md](API_REFERENCE.md) for complete API documentation.
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `GITHUB_TOKEN` | GitHub Personal Access Token | - |
+| `ADO_PAT` | Azure DevOps Personal Access Token | - |
+| `GIT_TIMEOUT` | Operation timeout in seconds | `30` |
+| `GIT_PATH` | Path to git executable | Auto-detected |
+| `MCP_DEBUG` | Enable MCP debug logging | `0` |
+| `GIT_TOOLS_DEBUG` | Enable git tools debug logging | `0` |
+
+### Token Authentication
+
+Tokens are automatically injected during remote operations (pull, push, fetch). Configure in `mcp.json` for Copilot:
+
+```json
+{
+  "mcpServers": {
+    "git": {
+      "command": "python",
+      "args": ["-m", "mcp_git_server.mcp_server"],
+      "env": {
+        "GITHUB_TOKEN": "ghp_your_token",
+        "ADO_PAT": "your_ado_pat",
+        "GIT_TIMEOUT": "240"
+      }
+    }
+  }
+}
+```
+
+See [TOKEN_AUTH_GUIDE.md](TOKEN_AUTH_GUIDE.md) for detailed setup instructions.
+
+## License
+
+MIT License - see LICENSE file for details.
