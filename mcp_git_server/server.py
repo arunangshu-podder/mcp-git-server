@@ -362,6 +362,121 @@ def restore():
     return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
 
 
+@app.route('/api/conflict_status', methods=['POST'])
+def conflict_status():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    rc, out, err = runner.conflict_status(repo_path)
+    return make_response(rc, out, err)
+
+
+@app.route('/api/show_conflicts', methods=['POST'])
+def show_conflicts():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    file_path = data.get("file_path")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+    
+    if not file_path:
+        return jsonify({"error": "file_path parameter required"}), 400
+
+    rc, out, err = runner.show_conflicts(repo_path, file_path)
+    message = 'File retrieved' if rc == 0 else 'Failed to retrieve file'
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
+@app.route('/api/diff_conflict', methods=['POST'])
+def diff_conflict():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    file_path = data.get("file_path")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    rc, out, err = runner.diff_conflict(repo_path, file_path=file_path)
+    return make_response(rc, out, err)
+
+
+@app.route('/api/abort_merge', methods=['POST'])
+def abort_merge():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    rc, out, err = runner.abort_merge(repo_path)
+    message = 'Merge/rebase aborted' if rc == 0 else 'Abort failed'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
+@app.route('/api/merge_continue', methods=['POST'])
+def merge_continue():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    message = data.get("message")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    rc, out, err = runner.merge_continue(repo_path, message=message)
+    merge_msg = 'Merge completed' if rc == 0 else 'Merge completion failed'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': merge_msg})
+
+
+@app.route('/api/rebase_continue', methods=['POST'])
+def rebase_continue():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    rc, out, err = runner.rebase_continue(repo_path)
+    message = 'Rebase continued' if rc == 0 else 'Rebase continuation failed'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
+@app.route('/api/rebase_abort', methods=['POST'])
+def rebase_abort():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+
+    rc, out, err = runner.rebase_abort(repo_path)
+    message = 'Rebase aborted' if rc == 0 else 'Rebase abort failed'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok', 'git_path': config.get('git_path')})

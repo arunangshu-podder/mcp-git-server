@@ -1,6 +1,6 @@
 # MCP Git Server - Complete API Reference
 
-Comprehensive documentation for all 15 git operations available via MCP tools and HTTP endpoints.
+Comprehensive documentation for all 21 git operations available via MCP tools and HTTP endpoints.
 
 ---
 
@@ -652,6 +652,225 @@ Restore working tree files or unstage changes (modern alternative to checkout fo
 
 ---
 
+## Merge Conflict Resolution Tools
+
+### 16. `git_conflict_status`
+Check if repository is in merge/rebase state and list all conflicted files.
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+
+**Returns:**
+```json
+{
+  "in_merge": boolean,
+  "in_rebase": boolean,
+  "in_cherrypick": boolean,
+  "conflicted_files": ["file1.js", "file2.py"],
+  "conflict_count": integer
+}
+```
+
+**Example (natural language):**
+```
+"Check for merge conflicts in my repo"
+"What conflicts do I have?"
+"Show conflicted files"
+```
+
+**Tool call:**
+```json
+{
+  "name": "git_conflict_status",
+  "arguments": {
+    "repo_path": "~/my-repo"
+  }
+}
+```
+
+---
+
+### 17. `git_show_conflicts`
+Show a conflicted file with conflict markers so you can see both versions.
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+- `file_path` (string, **required**): Relative path to conflicted file (e.g., `src/main.js`)
+
+**Returns:**
+- File content with conflict markers intact:
+  ```
+  <<<<<<< HEAD
+  your code
+  =======
+  their code
+  >>>>>>> branch-name
+  ```
+
+**Example (natural language):**
+```
+"Show me the conflicts in src/main.js"
+"What's the merge conflict in README.md?"
+```
+
+**Tool call:**
+```json
+{
+  "name": "git_show_conflicts",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "file_path": "src/main.js"
+  }
+}
+```
+
+**Note:** User should manually edit this file in VS Code to choose which code to keep, then mark it as resolved with `git_add`.
+
+---
+
+### 18. `git_diff_conflict`
+Show diffs for conflicted files to understand what each side changed.
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+- `file_path` (string, optional): Specific file to show, or all conflicts if omitted
+
+**Returns:**
+- Unified diff showing changes from both sides
+
+**Example (natural language):**
+```
+"Show me what's different in the conflicted files"
+"Diff of the merge conflict in config.yaml"
+```
+
+**Tool call:**
+```json
+{
+  "name": "git_diff_conflict",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "file_path": "config.yaml"
+  }
+}
+```
+
+---
+
+### 19. `git_abort_merge`
+Abort an ongoing merge, rebase, or cherry-pick operation.
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+
+**Example (natural language):**
+```
+"Cancel this merge"
+"Abort the merge"
+"Stop the rebase"
+```
+
+**Tool call:**
+```json
+{
+  "name": "git_abort_merge",
+  "arguments": {
+    "repo_path": "~/my-repo"
+  }
+}
+```
+
+---
+
+### 20. `git_merge_continue`
+Complete a merge after manually resolving all conflicts.
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+- `message` (string, optional): Custom merge commit message
+
+**Example (natural language):**
+```
+"Complete the merge"
+"Finish merging with message 'Merge feature-branch'"
+```
+
+**Tool calls:**
+```json
+// Complete merge with default message
+{
+  "name": "git_merge_continue",
+  "arguments": {
+    "repo_path": "~/my-repo"
+  }
+}
+
+// Complete merge with custom message
+{
+  "name": "git_merge_continue",
+  "arguments": {
+    "repo_path": "~/my-repo",
+    "message": "Merge feature: add login"
+  }
+}
+```
+
+**Requirements:**
+- All conflicted files must be resolved and staged with `git_add`
+- Must be in a merge state (initiated by `git_merge`)
+
+---
+
+### 21. `git_rebase_continue`
+Continue rebasing after manually resolving conflicts in current commit.
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+
+**Example (natural language):**
+```
+"Continue the rebase"
+"Move to next conflict"
+```
+
+**Tool call:**
+```json
+{
+  "name": "git_rebase_continue",
+  "arguments": {
+    "repo_path": "~/my-repo"
+  }
+}
+```
+
+**Note:** May return conflicts for next commit or complete if all resolved. User must stage changes before calling this.
+
+---
+
+### 22. `git_rebase_abort`
+Abort an ongoing rebase operation and return to previous state.
+
+**Parameters:**
+- `repo_path` (string, **required**): Path to the git repository
+
+**Example (natural language):**
+```
+"Cancel this rebase"
+"Abort the rebase"
+```
+
+**Tool call:**
+```json
+{
+  "name": "git_rebase_abort",
+  "arguments": {
+    "repo_path": "~/my-repo"
+  }
+}
+```
+
+---
+
 ## HTTP API Endpoints
 
 If you're accessing the Flask server directly (not via MCP), use these HTTP endpoints.
@@ -1138,6 +1357,218 @@ curl -X POST http://127.0.0.1:5000/api/restore \
 - Both flags: Discard all changes
 
 **Note:** `git restore` is the modern alternative to `git checkout` for restoring files (Git 2.23+).
+
+---
+
+#### `POST /api/conflict_status`
+Get merge conflict status: current merge state, conflicted files, and resolved files.
+
+**Request body:**
+```json
+{
+  "repo_path": "/path/to/repo"
+}
+```
+
+**curl example:**
+```bash
+curl -X POST http://127.0.0.1:5000/api/conflict_status \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo"}'
+```
+
+**Response example:**
+```json
+{
+  "merging": true,
+  "rebasing": false,
+  "conflicted_files": ["src/app.py", "config.json"],
+  "resolved_files": ["README.md"],
+  "merge_head": "abc123def456"
+}
+```
+
+**Use cases:**
+- Detect if merge/rebase is in progress
+- List files with unresolved conflicts
+- Check which files have been resolved
+
+---
+
+#### `POST /api/show_conflicts`
+Display file content with Git conflict markers to identify conflicting sections.
+
+**Request body:**
+```json
+{
+  "repo_path": "/path/to/repo",
+  "file_path": "src/app.py"
+}
+```
+
+**curl example:**
+```bash
+curl -X POST http://127.0.0.1:5000/api/show_conflicts \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","file_path":"src/app.py"}'
+```
+
+**Response example:**
+```json
+{
+  "file_path": "src/app.py",
+  "content": "def greet():\n<<<<<<< HEAD\n    return 'Hello'  # Current branch\n=======\n    return 'Hi'  # Incoming branch\n>>>>>>> feature-branch\n"
+}
+```
+
+**Conflict markers:**
+- `<<<<<<< HEAD` - Start of current branch changes
+- `=======` - Separator between branches
+- `>>>>>>> <branch>` - End of incoming branch changes
+
+---
+
+#### `POST /api/diff_conflict`
+Show unified diff of conflicting changes to understand what each side changed.
+
+**Request body:**
+```json
+{
+  "repo_path": "/path/to/repo",
+  "file_path": "src/app.py"
+}
+```
+
+**curl example:**
+```bash
+curl -X POST http://127.0.0.1:5000/api/diff_conflict \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","file_path":"src/app.py"}'
+```
+
+**Response example:**
+```json
+{
+  "diff": "diff --git a/src/app.py b/src/app.py\nindex abc123..def456 100644\n--- a/src/app.py\n+++ b/src/app.py\n@@ -1,5 +1,5 @@\n def greet():\n-    return 'Hello'\n+    return 'Hi'\n"
+}
+```
+
+**Use cases:**
+- Understand what changed on each branch
+- Decide which changes to keep
+- See context around conflicts
+
+---
+
+#### `POST /api/abort_merge`
+Cancel the current merge, rebase, or cherry-pick and return to the state before the operation started.
+
+**Request body:**
+```json
+{
+  "repo_path": "/path/to/repo"
+}
+```
+
+**curl example:**
+```bash
+curl -X POST http://127.0.0.1:5000/api/abort_merge \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo"}'
+```
+
+**Response example:**
+```json
+{
+  "success": true,
+  "message": "Merge aborted"
+}
+```
+
+**Supported operations:**
+- Aborts ongoing merge operations
+- Aborts ongoing rebase operations
+- Aborts ongoing cherry-pick operations
+
+**Use cases:**
+- Cancel merge if conflicts are too complex
+- Abort rebase and start over with different strategy
+- Give up on current merge attempt
+
+---
+
+#### `POST /api/merge_continue`
+Complete the merge after all conflicts are manually resolved and staged.
+
+**Request body:**
+```json
+{
+  "repo_path": "/path/to/repo",
+  "message": "Merge branch 'feature' into 'main'"
+}
+```
+
+**curl example:**
+```bash
+curl -X POST http://127.0.0.1:5000/api/merge_continue \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo","message":"Merge main into feature"}'
+```
+
+**Response example:**
+```json
+{
+  "success": true,
+  "message": "Merge completed successfully"
+}
+```
+
+**Workflow:**
+1. Show conflicts with `git_show_conflicts`
+2. User edits files in VS Code to resolve conflicts
+3. Stage resolved files with `git_add`
+4. Call `git_merge_continue` to complete merge
+5. Creates a merge commit with specified message
+
+**Note:** All conflicts must be resolved and files staged before calling this endpoint.
+
+---
+
+#### `POST /api/rebase_continue`
+Continue rebase after manually resolving conflicts for the current commit.
+
+**Request body:**
+```json
+{
+  "repo_path": "/path/to/repo"
+}
+```
+
+**curl example:**
+```bash
+curl -X POST http://127.0.0.1:5000/api/rebase_continue \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path":"/Users/user/my-repo"}'
+```
+
+**Response example:**
+```json
+{
+  "success": true,
+  "message": "Rebase continued, processing next commit"
+}
+```
+
+**Workflow for rebasing:**
+1. Start rebase with `git_checkout` or pull with rebase option
+2. When conflicts occur, `git_conflict_status` detects rebase state
+3. Show conflicts with `git_show_conflicts`
+4. User edits files in VS Code to resolve
+5. Stage resolved files with `git_add`
+6. Call `git_rebase_continue` to proceed to next commit
+7. Repeat until rebase completes or another conflict occurs
+
+**Note:** Use `git_abort_merge` to cancel rebase if needed (`git rebase --abort`).
 
 ---
 

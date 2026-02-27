@@ -4,7 +4,7 @@ Minimal MCP-style HTTP server to run common Git operations via HTTP API and Mode
 
 ## Features
 
-- 🔧 **15 Git Operations**: Clone, status, pull, push, commit, add, checkout, branch, log, fetch, merge, stash, reset, config, restore
+- 🔧 **22 Git Operations**: Clone, status, pull, push, commit, add, checkout, branch, log, fetch, merge, stash, reset, config, restore, plus 6 merge conflict resolution tools
 - 🤖 **MCP Integration**: Works seamlessly with VS Code Copilot
 - 🔐 **Automatic Token Authentication**: GitHub and Azure DevOps tokens injected automatically
 - 🌐 **Cross-Platform**: macOS, Linux, and Windows support
@@ -42,7 +42,9 @@ curl http://127.0.0.1:5000/api/health
 
 ## Available Tools
 
-The server provides **15 git operations** accessible via MCP tools (for Copilot) or HTTP endpoints (for direct API calls):
+The server provides **22 git operations** accessible via MCP tools (for Copilot) or HTTP endpoints (for direct API calls):
+
+### Core Operations (15 tools)
 
 | # | Tool | HTTP Endpoint | Description |
 |---|------|---------------|-------------|
@@ -61,6 +63,18 @@ The server provides **15 git operations** accessible via MCP tools (for Copilot)
 | 13 | `git_reset` | `POST /api/reset` | Reset HEAD to specified state or unstage files |
 | 14 | `git_config` | `POST /api/config` | Get, set, unset, or list git configuration |
 | 15 | `git_restore` | `POST /api/restore` | Restore working tree files or unstage changes |
+
+### Merge Conflict Resolution (6 tools)
+
+| # | Tool | HTTP Endpoint | Description |
+|---|------|---------------|-------------|
+| 16 | `git_conflict_status` | `POST /api/conflict_status` | Check merge state and list conflicted files |
+| 17 | `git_show_conflicts` | `POST /api/show_conflicts` | Show conflicted file with conflict markers |
+| 18 | `git_diff_conflict` | `POST /api/diff_conflict` | Show diffs for conflicted files |
+| 19 | `git_abort_merge` | `POST /api/abort_merge` | Abort merge, rebase, or cherry-pick |
+| 20 | `git_merge_continue` | `POST /api/merge_continue` | Complete merge after manual resolution |
+| 21 | `git_rebase_continue` | `POST /api/rebase_continue` | Continue rebase after conflict resolution |
+| 22 | `git_rebase_abort` | `POST /api/rebase_abort` | Abort ongoing rebase |
 
 **📖 For detailed parameters, examples, and usage, see [API_REFERENCE.md](API_REFERENCE.md)**
 

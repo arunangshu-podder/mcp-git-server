@@ -368,6 +368,116 @@ TOOLS = [
             },
             "required": ["repo_path", "paths"]
         }
+    },
+    {
+        "name": "git_conflict_status",
+        "description": "Check if in merge/rebase state and list conflicted files",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                }
+            },
+            "required": ["repo_path"]
+        }
+    },
+    {
+        "name": "git_show_conflicts",
+        "description": "Show a conflicted file with conflict markers to view both versions",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Relative path to conflicted file (e.g., 'src/main.py')"
+                }
+            },
+            "required": ["repo_path", "file_path"]
+        }
+    },
+    {
+        "name": "git_diff_conflict",
+        "description": "Show diffs for conflicted files to understand context",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Optional specific file (if None, shows all conflicts)"
+                }
+            },
+            "required": ["repo_path"]
+        }
+    },
+    {
+        "name": "git_abort_merge",
+        "description": "Abort ongoing merge, rebase, or cherry-pick operation",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                }
+            },
+            "required": ["repo_path"]
+        }
+    },
+    {
+        "name": "git_merge_continue",
+        "description": "Complete a merge after manually resolving all conflicts",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Custom merge commit message (optional)"
+                }
+            },
+            "required": ["repo_path"]
+        }
+    },
+    {
+        "name": "git_rebase_continue",
+        "description": "Continue rebase after manually resolving conflicts in current commit",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                }
+            },
+            "required": ["repo_path"]
+        }
+    },
+    {
+        "name": "git_rebase_abort",
+        "description": "Abort an ongoing rebase operation",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                }
+            },
+            "required": ["repo_path"]
+        }
     }
 ]
 
@@ -428,7 +538,14 @@ def process_tool_call(tool_name: str, tool_input: dict) -> dict:
         "git_stash": "stash",
         "git_reset": "reset",
         "git_config": "config",
-        "git_restore": "restore"
+        "git_restore": "restore",
+        "git_conflict_status": "conflict_status",
+        "git_show_conflicts": "show_conflicts",
+        "git_diff_conflict": "diff_conflict",
+        "git_abort_merge": "abort_merge",
+        "git_merge_continue": "merge_continue",
+        "git_rebase_continue": "rebase_continue",
+        "git_rebase_abort": "rebase_abort"
     }
     
     if tool_name not in endpoint_map:

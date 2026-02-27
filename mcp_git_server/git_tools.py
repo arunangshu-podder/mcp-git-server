@@ -696,3 +696,201 @@ class GitRunner:
         if args[0] not in safe_cmds:
             return 1, '', f'Command `{args[0]}` not allowed via run_safe'
         return self._run(args, cwd=repo_path)
+
+    def conflict_status(self, repo_path: str) -> Tuple[int, str, str]:
+        """Check if repository is in a merge/rebase/cherrypick state and list conflicted files.
+        
+        Detects ongoing merge, rebase, or cherry-pick operations and identifies
+        all conflicted files with their resolution status.
+        
+        Args:
+            repo_path: Path to the git repository
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            stdout contains JSON with structure:
+            {
+              "in_merge": bool,
+              "in_rebase": bool,
+              "in_cherrypick": bool,
+              "conflicted_files": ["file1", "file2"],
+              "conflict_count": int
+            }
+        """
+        import json
+        
+        git_dir = os.path.join(repo_path, '.git')
+        
+        state_info = {
+            'in_merge': os.path.exists(os.path.join(git_dir, 'MERGE_HEAD')),
+            'in_rebase': os.path.exists(os.path.join(git_dir, 'rebase-merge')) or os.path.exists(os.path.join(git_dir, 'rebase-apply')),
+            'in_cherrypick': os.path.exists(os.path.join(git_dir, 'CHERRY_PICK_HEAD')),
+        }
+        
+        # Get list of conflicted files using git diff
+        rc, out, err = self._run(['diff', '--name-only', '--diff-filter=U'], cwd=repo_path)
+        
+        conflicted_files = out.strip().split('\n') if out.strip() else []
+        conflicted_files = [f for f in conflicted_files if f]  # Remove empty strings
+        
+        result = {
+            'in_merge': state_info['in_merge'],
+            'in_rebase': state_info['in_rebase'],
+            'in_cherrypick': state_info['in_cherrypick'],
+            'conflicted_files': conflicted_files,
+            'conflict_count': len(conflicted_files)
+        }
+        
+        return 0, json.dumps(result), ''
+
+    def show_conflicts(self, repo_path: str, file_path: str) -> Tuple[int, str, str]:
+        """Show a conflicted file with conflict markers intact.
+        
+        Displays the content of a conflicted file, preserving conflict markers
+        (<<<<<<, =======, >>>>>>) so the user can see both versions and manually
+        choose which code to keep.
+        
+        Args:
+            repo_path: Path to the git repository
+            file_path: Relative path to the conflicted file (e.g., 'src/main.py')
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            stdout contains file content with conflict markers
+        """
+        if not file_path:
+            return 1, '', 'file_path parameter is required'
+        
+        # Read the file directly to preserve conflict markers
+        full_path = os.path.join(repo_path, file_path)
+        try:
+            with open(full_path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            return 0, content, ''
+        except FileNotFoundError:
+            return 1, '', f'File not found: {file_path}'
+        except Exception as e:
+            return 1, '', f'Error reading file: {str(e)}'
+
+    def diff_conflict(self, repo_path: str, file_path: str = None) -> Tuple[int, str, str]:
+        """Show diffs for conflicted files to understand what each side changed.
+        
+        Displays unified diffs for conflicted files, showing what changes were made
+        on each side of the conflict to help the user understand the context and
+        make an informed decision about which code to keep.
+        
+        Args:
+            repo_path: Path to the git repository
+            file_path: Optional specific file to show diff for (if None, shows all conflicts)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            stdout contains diff output for conflicted files
+        """
+        args = ['diff']
+        if file_path:
+            args.extend(['--', file_path])
+        
+        return self._run(args, cwd=repo_path)
+
+    def abort_merge(self, repo_path: str) -> Tuple[int, str, str]:
+        """Abort an ongoing merge, rebase, or cherry-pick operation.
+        
+        Cancels the current merge/rebase/cherry-pick and returns the repository
+        to its previous state before the operation started. The working directory
+        changes are preserved (can be undone with git reset if needed).
+        
+        Args:
+            repo_path: Path to the git repository
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        """
+        # Detect which operation is in progress and abort it
+        git_dir = os.path.join(repo_path, '.git')
+        
+        if os.path.exists(os.path.join(git_dir, 'MERGE_HEAD')):
+            return self._run(['merge', '--abort'], cwd=repo_path)
+        elif os.path.exists(os.path.join(git_dir, 'rebase-merge')) or os.path.exists(os.path.join(git_dir, 'rebase-apply')):
+            return self._run(['rebase', '--abort'], cwd=repo_path)
+        elif os.path.exists(os.path.join(git_dir, 'CHERRY_PICK_HEAD')):
+            return self._run(['cherry-pick', '--abort'], cwd=repo_path)
+        else:
+            return 1, '', 'No merge, rebase, or cherry-pick in progress'
+
+    def merge_continue(self, repo_path: str, message: str = None) -> Tuple[int, str, str]:
+        """Complete a merge after manually resolving all conflicts.
+        
+        Completes a merge operation after the user has manually edited all conflicted
+        files, resolved the conflicts, and staged the resolved files with 'git add'.
+        Creates the merge commit with an optional custom message or default message.
+        
+        Args:
+            repo_path: Path to the git repository
+            message: Custom merge commit message (optional)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        
+        Note:
+            - Only works if in a merge state (MERGE_HEAD exists)
+            - All conflicted files must be resolved and staged
+            - Uses 'git commit' to finalize the merge
+        """
+        git_dir = os.path.join(repo_path, '.git')
+        
+        if not os.path.exists(os.path.join(git_dir, 'MERGE_HEAD')):
+            return 1, '', 'No merge in progress'
+        
+        args = ['commit']
+        if message:
+            args.extend(['-m', message])
+        else:
+            # Use default merge message
+            args.extend(['-m', 'Merge resolved'])
+        
+        return self._run(args, cwd=repo_path)
+
+    def rebase_continue(self, repo_path: str) -> Tuple[int, str, str]:
+        """Continue an ongoing rebase after manually resolving conflicts.
+        
+        Continues a rebase operation after the user has manually edited conflicted
+        files and staged them with 'git add'. If there are more conflicted commits
+        in the rebase, this will pause again at the next conflict.
+        
+        Args:
+            repo_path: Path to the git repository
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        
+        Note:
+            - Only works if in a rebase state
+            - All conflicts in the current commit must be resolved and staged
+            - May return exit code 1 if more conflicts exist in next commit
+        """
+        git_dir = os.path.join(repo_path, '.git')
+        
+        if not (os.path.exists(os.path.join(git_dir, 'rebase-merge')) or os.path.exists(os.path.join(git_dir, 'rebase-apply'))):
+            return 1, '', 'No rebase in progress'
+        
+        return self._run(['rebase', '--continue'], cwd=repo_path)
+
+    def rebase_abort(self, repo_path: str) -> Tuple[int, str, str]:
+        """Abort an ongoing rebase operation.
+        
+        Cancels the current rebase and returns the repository to the state before
+        the rebase started. The working directory changes are preserved.
+        
+        Args:
+            repo_path: Path to the git repository
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+        """
+        git_dir = os.path.join(repo_path, '.git')
+        
+        if not (os.path.exists(os.path.join(git_dir, 'rebase-merge')) or os.path.exists(os.path.join(git_dir, 'rebase-apply'))):
+            return 1, '', 'No rebase in progress'
+        
+        return self._run(['rebase', '--abort'], cwd=repo_path)
