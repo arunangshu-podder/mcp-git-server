@@ -477,6 +477,72 @@ def rebase_abort():
     return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
 
 
+@app.route('/api/show', methods=['POST'])
+def show():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    commit = data.get("commit")
+    
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+    if not commit:
+        return jsonify({"error": "commit parameter required"}), 400
+    
+    rc, out, err = runner.show(repo_path, commit)
+    message = 'Commit details retrieved' if rc == 0 else 'Failed to retrieve commit'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
+@app.route('/api/diff', methods=['POST'])
+def diff():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    ref1 = data.get("ref1")
+    ref2 = data.get("ref2")
+    file_path = data.get("file_path")
+    
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+    
+    rc, out, err = runner.diff(repo_path, ref1=ref1, ref2=ref2, file_path=file_path)
+    message = 'Diff retrieved' if rc == 0 else 'Failed to retrieve diff'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
+@app.route('/api/show_file', methods=['POST'])
+def show_file():
+    data = request.get_json() or {}
+    repo_path = data.get("repo_path")
+    commit = data.get("commit")
+    file_path = data.get("file_path")
+    
+    if not repo_path or not os.path.exists(repo_path):
+        return jsonify({"error": "valid repo_path required"}), 400
+    if not commit:
+        return jsonify({"error": "commit parameter required"}), 400
+    if not file_path:
+        return jsonify({"error": "file_path parameter required"}), 400
+    
+    rc, out, err = runner.show_file(repo_path, commit, file_path)
+    message = 'File content retrieved' if rc == 0 else 'Failed to retrieve file content'
+    
+    # Surface informational stderr in stdout on success
+    if rc == 0 and not out and err:
+        out = err
+        err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok', 'git_path': config.get('git_path')})

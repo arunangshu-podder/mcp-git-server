@@ -394,3 +394,114 @@ Constraints:
 ```
 
 ---
+
+---
+
+## Code Review Prompts
+
+---
+
+## Prompt 15 — Automated Code Review for a Commit
+
+```
+You are a code review assistant. Your task is to review a git commit and provide
+detailed feedback on code quality, best practices, and potential improvements.
+
+I have a file called Code_Review_Instructions.md in the repository that contains
+a comprehensive code review guide with best coding practices and standards.
+
+Variables (replace before running):
+- REPO_PATH : <absolute-path-to-local-repo>
+- COMMIT_SHA: <full-commit-sha-to-review>
+
+Steps:
+1. Read the Code_Review_Instructions.md file to understand the coding standards
+   and best practices that code should adhere to.
+2. Retrieve the full commit details and changes using the commit SHA COMMIT_SHA.
+3. Analyze the commit to identify:
+   a. What files were changed and how many lines were added/removed
+   b. The commit message and metadata (author, date)
+   c. All changes made in the diff
+4. Compare the changes against all the best practices in Code_Review_Instructions.md.
+5. For each category in the checklist (Project Structure, Cucumber/BDD, POM, etc.),
+   identify if the code adheres to or violates the practices.
+6. Provide a structured code review report with:
+   a. Summary of changes
+   b. Checklist violations or concerns (organized by category)
+   c. Specific suggestions for improvement with line references where applicable
+   d. Positive aspects: any practices that were followed well
+7. If adding code, do not create a new code file or patch — only provide feedback
+   and recommendations.
+
+Constraints:
+- Base your review strictly on Code_Review_Instructions.md — do not invent rules.
+- Use only the tools available in the MCP git server. Do not invoke any terminal commands.
+- If a required git operation has no corresponding MCP tool, notify me immediately and stop — do not proceed with that step.
+- Do not hallucinate commands or invent tool calls that do not exist.
+```
+
+---
+
+## Prompt 16 — Compare Two Commits for Code Quality Changes
+
+```
+Using the git MCP server, perform the following steps in order:
+
+Variables (replace before running):
+- REPO_PATH     : <absolute-path-to-local-repo>
+- OLDER_COMMIT  : <older-commit-sha>
+- NEWER_COMMIT  : <newer-commit-sha>
+- CODE_REVIEW_GUIDE: Code_Review_Instructions.md
+
+Steps:
+1. Read Code_Review_Instructions.md to understand the coding standards.
+2. Retrieve the diff between OLDER_COMMIT and NEWER_COMMIT to see what changed
+   between these two commits.
+3. Analyze the delta to understand:
+   a. Which files were modified, added, or removed
+   b. What specific lines of code changed
+   c. Whether improvements or regressions were introduced
+4. Check both the old version and new version of key modified files to compare
+   side-by-side quality improvements.
+5. Generate a comparative analysis report:
+   a. Files that improved in code quality
+   b. Files that may have regressed
+   c. Adherence to Code_Review_Instructions.md practices in the changes
+   d. Overall assessment of whether this is a forward step in code quality
+
+Constraints:
+- Use only the tools available in the MCP git server. Do not invoke any terminal commands.
+- If a required git operation has no corresponding MCP tool, notify me immediately and stop — do not proceed with that step.
+- Do not hallucinate commands or invent tool calls that do not exist.
+```
+
+---
+
+## Prompt 17 — Review a Single File Across Commits
+
+```
+Using the git MCP server, perform the following steps in order:
+
+Variables (replace before running):
+- REPO_PATH   : <absolute-path-to-local-repo>
+- FILE_PATH   : <path-to-file-in-repo, e.g., src/main.py>
+- COMMIT_1    : <first-commit-sha-or-branch>
+- COMMIT_2    : <second-commit-sha-or-branch>
+
+Steps:
+1. Show the content of FILE_PATH as it existed in COMMIT_1.
+2. Show the content of FILE_PATH as it exists in COMMIT_2.
+3. Show the diff for FILE_PATH between COMMIT_1 and COMMIT_2.
+4. Provide a detailed analysis of how the file evolved:
+   a. What logic changed or improved
+   b. Any refactoring that occurred
+   c. Whether the changes align with best practices
+   d. Any potential code quality concerns introduced
+
+Constraints:
+- Use only the tools available in the MCP git server. Do not invoke any terminal commands.
+- If a required git operation has no corresponding MCP tool, notify me immediately and stop — do not proceed with that step.
+- Do not hallucinate commands or invent tool calls that do not exist.
+```
+
+---

@@ -478,6 +478,72 @@ TOOLS = [
             },
             "required": ["repo_path"]
         }
+    },
+    {
+        "name": "git_show",
+        "description": "Show commit details with full unified diff for code review",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "commit": {
+                    "type": "string",
+                    "description": "Commit SHA or ref (e.g., 'abc1234', 'HEAD', 'main')"
+                }
+            },
+            "required": ["repo_path", "commit"]
+        }
+    },
+    {
+        "name": "git_diff",
+        "description": "Show diff between two refs (commits, branches, working tree)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "ref1": {
+                    "type": "string",
+                    "description": "First ref (commit, branch, HEAD, etc.) - defaults to HEAD if omitted"
+                },
+                "ref2": {
+                    "type": "string",
+                    "description": "Second ref - defaults to working tree if omitted"
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Optional specific file to show diff for (e.g., 'src/main.py')"
+                }
+            },
+            "required": ["repo_path"]
+        }
+    },
+    {
+        "name": "git_show_file",
+        "description": "Show a specific file's content at a given commit",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to repository"
+                },
+                "commit": {
+                    "type": "string",
+                    "description": "Commit SHA or ref (e.g., 'HEAD', 'main', 'abc1234')"
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file within the repository (e.g., 'src/main.py')"
+                }
+            },
+            "required": ["repo_path", "commit", "file_path"]
+        }
     }
 ]
 
@@ -545,7 +611,10 @@ def process_tool_call(tool_name: str, tool_input: dict) -> dict:
         "git_abort_merge": "abort_merge",
         "git_merge_continue": "merge_continue",
         "git_rebase_continue": "rebase_continue",
-        "git_rebase_abort": "rebase_abort"
+        "git_rebase_abort": "rebase_abort",
+        "git_show": "show",
+        "git_diff": "diff",
+        "git_show_file": "show_file"
     }
     
     if tool_name not in endpoint_map:

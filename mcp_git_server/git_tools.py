@@ -894,3 +894,77 @@ class GitRunner:
             return 1, '', 'No rebase in progress'
         
         return self._run(['rebase', '--abort'], cwd=repo_path)
+
+    def show(self, repo_path: str, commit: str) -> Tuple[int, str, str]:
+        """Show commit details and full unified diff.
+        
+        Displays comprehensive information about a commit including the author,
+        date, commit message, and complete unified diff of all changes introduced
+        by that commit. Useful for code reviews to see what was changed.
+        
+        Args:
+            repo_path: Path to the git repository
+            commit: Commit SHA or ref (full hash, short hash, branch name, HEAD~N, etc.)
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            stdout contains the full commit info and diff
+        """
+        if not commit:
+            return 1, '', 'commit parameter is required'
+        
+        return self._run(['show', commit], cwd=repo_path)
+
+    def diff(self, repo_path: str, ref1: str = None, ref2: str = None, file_path: str = None) -> Tuple[int, str, str]:
+        """Show diff between two refs (commits, branches, working tree, staging area).
+        
+        Displays unified diff showing the differences between two refs. Can compare:
+        - Two commits: diff between two specific commits
+        - Commit and working tree: show unstaged changes for specific files
+        - Staging area and HEAD: show staged changes
+        - Branch to branch: compare branches
+        
+        Args:
+            repo_path: Path to the git repository
+            ref1: First ref (commit, branch, HEAD, etc.) - if None, defaults to HEAD
+            ref2: Second ref - if None, defaults to working tree
+            file_path: Optional specific file to show diff for (e.g., 'src/main.py')
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            stdout contains unified diff output
+        """
+        args = ['diff']
+        
+        if ref1:
+            args.append(ref1)
+        if ref2:
+            args.append(ref2)
+        
+        if file_path:
+            args.extend(['--', file_path])
+        
+        return self._run(args, cwd=repo_path)
+
+    def show_file(self, repo_path: str, commit: str, file_path: str) -> Tuple[int, str, str]:
+        """Show a specific file's content at a given commit.
+        
+        Displays the full content of a file as it existed at a specific commit.
+        Useful for reviewing what code looked like at a particular point in history,
+        especially when analyzing why a particular change was made.
+        
+        Args:
+            repo_path: Path to the git repository
+            commit: Commit SHA or ref (e.g., 'HEAD', 'main', 'abc1234')
+            file_path: Path to the file within the repository (e.g., 'src/main.py')
+        
+        Returns:
+            Tuple of (returncode: int, stdout: str, stderr: str)
+            stdout contains the file content
+        """
+        if not commit:
+            return 1, '', 'commit parameter is required'
+        if not file_path:
+            return 1, '', 'file_path parameter is required'
+        
+        return self._run(['show', f'{commit}:{file_path}'], cwd=repo_path)
