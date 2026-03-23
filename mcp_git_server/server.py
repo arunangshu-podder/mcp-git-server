@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from mcp_git_server.config import load_config
 from mcp_git_server.git_tools import GitRunner
+from mcp_git_server.report_utils import export_report_to_pdf
 import os
 
 app = Flask(__name__)
@@ -540,6 +541,24 @@ def show_file():
     if rc == 0 and not out and err:
         out = err
         err = ''
+    return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
+
+
+@app.route('/api/export_report_pdf', methods=['POST'])
+def export_report_pdf():
+    data = request.get_json() or {}
+    report_content = data.get("report_content")
+    output_path = data.get("output_path")
+    title = data.get("title", "Code Review Report")
+    
+    if not report_content:
+        return jsonify({"error": "report_content parameter required"}), 400
+    if not output_path:
+        return jsonify({"error": "output_path parameter required"}), 400
+    
+    rc, out, err = export_report_to_pdf(report_content, output_path, title)
+    message = 'PDF exported successfully' if rc == 0 else 'Failed to export PDF'
+    
     return jsonify({'returncode': rc, 'stdout': out, 'stderr': err, 'message': message})
 
 

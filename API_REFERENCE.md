@@ -1769,6 +1769,116 @@ curl -X POST http://127.0.0.1:5000/api/push \
 
 ---
 
+## Summary of All Tools
+
+The MCP Git Server now provides **25 git operations**:
+- **Core operations (15):** clone, status, pull, push, commit, add, checkout, branch, log, fetch, merge, stash (7 sub-actions), reset, config, restore
+- **Conflict resolution (7):** conflict_status, show_conflicts, diff_conflict, abort_merge, merge_continue, rebase_continue, rebase_abort
+- **Code review (3 new):** show, diff, show_file
+
+---
+
+## NEW TOOL - PDF Export Support
+
+### 26. `export_report_pdf`
+Export a code review report or any text content to a professional PDF file.
+
+**Parameters:**
+- `report_content` (string, **required**): The full text content of the report (can include markdown-style formatting with # for headers)
+- `output_path` (string, **required**): Absolute path where the PDF file will be saved (e.g., '/users/john/reports/review.pdf')
+- `title` (string, optional): Title of the PDF document (default: 'Code Review Report')
+
+**Example (natural language):**
+```
+"Export the code review report to /path/to/my_report.pdf with title 'Review for Feature X'"
+```
+
+**Tool call:**
+```json
+{
+  "name": "export_report_pdf",
+  "arguments": {
+    "report_content": "# Code Review Report\n\n## Summary\nThe changes look good...",
+    "output_path": "/path/to/my_report.pdf",
+    "title": "Code Review - Feature X"
+  }
+}
+```
+
+**HTTP endpoint:**
+```
+POST /api/export_report_pdf
+Content-Type: application/json
+
+{
+  "report_content": "# Code Review Report\n\n## Summary\nThe changes look good...",
+  "output_path": "/path/to/my_report.pdf",
+  "title": "Code Review - Feature X"
+}
+```
+
+**Response:**
+```json
+{
+  "returncode": 0,
+  "stdout": "/path/to/my_report.pdf",
+  "stderr": "",
+  "message": "PDF exported successfully"
+}
+```
+
+**Formatting Support:**
+
+The PDF exporter supports the following markdown-style formatting:
+
+| Syntax | Result |
+|--------|--------|
+| `# Heading 1` | Large, bold heading |
+| `## Heading 2` | Medium, bold heading |
+| `### Heading 3` | Regular, bold heading |
+| `- Bullet point` or `* Bullet point` | Indented bullet point |
+| `1. Numbered item` | Numbered list item |
+| Plain text | Normal paragraph text |
+| Empty lines | Vertical spacing |
+
+**Example Report Content:**
+
+```
+# Code Review - Feature X
+## Commit: abc1234567890def
+
+### Summary
+- 3 files modified
+- 42 lines added
+- 8 lines removed
+
+### Issues Found
+1. Missing error handling in line 45
+2. Inconsistent naming convention in utils.py
+3. Test coverage below 80%
+
+### Positive Aspects
+- Clean, readable code structure
+- Good separation of concerns
+- Comprehensive docstrings
+
+### Recommendations
+- Add try-catch blocks for API calls
+- Rename variables for consistency
+- Add 5 more unit tests
+```
+
+**Features:**
+
+- Professional PDF formatting with headers and footers
+- Page numbers and generation timestamp automatically included
+- Markdown-style formatting support (headers, bullet points, numbered lists)
+- Multi-line text wrapping
+- Proper indentation for lists and nested content
+- UTF-8 text encoding support
+
+---
+
 ## See Also
 
 - [MCP_SETUP.md](MCP_SETUP.md) - VS Code Copilot integration guide

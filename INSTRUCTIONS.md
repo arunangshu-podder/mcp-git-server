@@ -430,8 +430,11 @@ Steps:
    b. Checklist violations or concerns (organized by category)
    c. Specific suggestions for improvement with line references where applicable
    d. Positive aspects: any practices that were followed well
-7. If adding code, do not create a new code file or patch — only provide feedback
-   and recommendations.
+7. Once the review is complete, ask me if I would like to export the review report
+   to a PDF file.
+8. If I confirm YES, export the report to REPO_PATH/code-review-COMMIT_SHA.pdf
+   with an appropriate title.
+9. If I confirm NO, skip the PDF export.
 
 Constraints:
 - Base your review strictly on Code_Review_Instructions.md — do not invent rules.
@@ -468,6 +471,11 @@ Steps:
    b. Files that may have regressed
    c. Adherence to Code_Review_Instructions.md practices in the changes
    d. Overall assessment of whether this is a forward step in code quality
+6. Once the analysis is complete, ask me if I would like to export the comparison
+   report to a PDF file.
+7. If I confirm YES, export the report to REPO_PATH/comparison-OLDER_COMMIT-to-NEWER_COMMIT.pdf
+   with an appropriate title.
+8. If I confirm NO, skip the PDF export.
 
 Constraints:
 - Use only the tools available in the MCP git server. Do not invoke any terminal commands.
@@ -497,6 +505,41 @@ Steps:
    b. Any refactoring that occurred
    c. Whether the changes align with best practices
    d. Any potential code quality concerns introduced
+5. Once the analysis is complete, ask me if I would like to export the review
+   to a PDF file.
+6. If I confirm YES, export the report to REPO_PATH/file-review-FILE_PATH.pdf
+   with an appropriate title.
+7. If I confirm NO, skip the PDF export.
+
+Constraints:
+- Use only the tools available in the MCP git server. Do not invoke any terminal commands.
+- If a required git operation has no corresponding MCP tool, notify me immediately and stop — do not proceed with that step.
+- Do not hallucinate commands or invent tool calls that do not exist.
+```
+
+---
+
+## Prompt 18 — Export Code Review Report to PDF
+
+```
+You have just completed a code review analysis and have the full review report
+text ready. Now export this report to a PDF file for documentation and sharing.
+
+Variables (replace before running):
+- REPORT_CONTENT: <the-complete-code-review-report-text>
+- OUTPUT_PATH   : <absolute-path-where-pdf-will-be-saved, e.g., /path/to/review_report.pdf>
+- REPORT_TITLE  : <title-for-the-pdf, e.g., "Code Review - Feature X">
+
+Steps:
+1. Take the complete code review report text (REPORT_CONTENT) that you have generated.
+2. Export it to a PDF file at OUTPUT_PATH with the title REPORT_TITLE.
+3. Confirm the PDF was created successfully and provide the file path where it was saved.
+
+Notes on formatting:
+- The PDF exporter automatically formats markdown-style headers (#, ##, ### for different heading levels)
+- Bullet points (- or *) are automatically indented and formatted
+- Numbered lists are preserved and formatted appropriately
+- The PDF includes generated timestamp and page numbers
 
 Constraints:
 - Use only the tools available in the MCP git server. Do not invoke any terminal commands.

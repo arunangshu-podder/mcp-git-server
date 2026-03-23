@@ -544,6 +544,28 @@ TOOLS = [
             },
             "required": ["repo_path", "commit", "file_path"]
         }
+    },
+    {
+        "name": "export_report_pdf",
+        "description": "Export a code review report or any text content to a PDF file",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "report_content": {
+                    "type": "string",
+                    "description": "The full text content of the report (can include markdown-style formatting with # for headers)"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Absolute path where the PDF file will be saved (e.g., '/path/to/report.pdf')"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Title of the PDF document (default: 'Code Review Report')"
+                }
+            },
+            "required": ["report_content", "output_path"]
+        }
     }
 ]
 
@@ -614,7 +636,8 @@ def process_tool_call(tool_name: str, tool_input: dict) -> dict:
         "git_rebase_abort": "rebase_abort",
         "git_show": "show",
         "git_diff": "diff",
-        "git_show_file": "show_file"
+        "git_show_file": "show_file",
+        "export_report_pdf": "export_report_pdf"
     }
     
     if tool_name not in endpoint_map:
